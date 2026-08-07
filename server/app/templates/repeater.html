@@ -94,10 +94,19 @@
   <div class="sec-body">
   <div class="card tablecard">
   <table class="neighbors">
-    <thead><tr><th></th><th>Node</th><th>Prefix</th><th class="num">SNR (dB)</th><th class="snrbar-col">Link</th><th>Laatst gehoord</th></tr></thead>
+    <thead><tr>
+      <th></th>
+      <th class="sortable" data-sort="name">Node</th>
+      <th>Prefix</th>
+      <th class="num sortable" data-sort="snr">SNR (dB)</th>
+      <th class="snrbar-col">Link</th>
+      <th class="sortable" data-sort="seen">Laatst gehoord</th>
+    </tr></thead>
     <tbody>
     {% for n in neighbors %}
-      <tr class="nbrow" data-metric="neighbor_{{ n.prefix }}" data-label="Link {{ n.name or n.prefix|upper }} — SNR" data-unit="dB">
+      <tr class="nbrow" data-metric="neighbor_{{ n.prefix }}" data-label="Link {{ n.name or n.prefix|upper }} — SNR" data-unit="dB"
+          data-prefix="{{ n.prefix }}" data-name="{{ (n.name or n.prefix)|lower }}"
+          data-snr="{{ n.snr if n.snr is not none else -999 }}" data-seen="{{ n.last_seen }}">
         <td class="chev">&#9656;</td>
         <td class="nbname">{{ n.name or n.prefix|upper }}</td>
         <td class="mono">{{ n.prefix|upper }}</td>

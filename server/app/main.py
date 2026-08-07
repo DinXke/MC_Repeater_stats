@@ -10,6 +10,27 @@ from . import auth, db, routes_admin, routes_api, routes_public
 
 app = FastAPI(title="MC Repeater Stats", docs_url=None, redoc_url=None, openapi_url=None)
 
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    resp = await call_next(request)
+    h = resp.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    h.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    h.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src 'self' data: https://unpkg.com https://*.basemaps.cartocdn.com; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+    )
+    return resp
+
 app.include_router(routes_api.router)
 app.include_router(routes_admin.router)
 app.include_router(routes_public.router)

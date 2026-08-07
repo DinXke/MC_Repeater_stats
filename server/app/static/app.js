@@ -357,6 +357,80 @@
     window.mcsOpenModal = openModal;
   }
 
+  // --- burentabel: sorteren (voorkeur lokaal) + auto-verversen ----------------
+  var nbTable = document.querySelector("table.neighbors");
+  if (nbTable && window.MCS) {
+    var nbBody = nbTable.querySelector("tbody");
+    var sortState = { key: "snr", dir: -1 };
+    try {
+      var saved = JSON.parse(localStorage.getItem("mcs-nbsort"));
+      if (saved && ["name", "snr", "seen"].indexOf(saved.key) !== -1) sortState = saved;
+    } catch (e) { /* niets */ }
+
+    function applySort() {
+      var rows = Array.prototype.slice.call(nbBody.querySelectorAll("tr.nbrow"));
+      rows.sort(function (a, b) {
+        var av, bv;
+        if (sortState.key === "name") { av = a.dataset.name; bv = b.dataset.name; }
+        else if (sortState.key === "seen") { av = a.dataset.seen; bv = b.dataset.seen; }
+        else { av = parseFloat(a.dataset.snr); bv = parseFloat(b.dataset.snr); }
+        if (av < bv) return -sortState.dir;
+        if (av > bv) return sortState.dir;
+        return 0;
+      });
+      rows.forEach(function (r) { nbBody.appendChild(r); });
+      nbTable.querySelectorAll("th.sortable").forEach(function (th) {
+        th.classList.remove("sort-asc", "sort-desc");
+        if (th.dataset.sort === sortState.key) {
+          th.classList.add(sortState.dir === 1 ? "sort-asc" : "sort-desc");
+        }
+      });
+    }
+
+    nbTable.querySelectorAll("th.sortable").forEach(function (th) {
+      th.addEventListener("click", function () {
+        var key = th.dataset.sort;
+        if (sortState.key === key) {
+          sortState.dir = -sortState.dir;
+        } else {
+          // logische standaard: naam oplopend, SNR en laatst-gehoord aflopend
+          sortState = { key: key, dir: key === "name" ? 1 : -1 };
+        }
+        try { localStorage.setItem("mcs-nbsort", JSON.stringify(sortState)); } catch (e) { /* niets */ }
+        applySort();
+      });
+    });
+    applySort();
+
+    // elke minuut verse burendata ophalen en cellen ter plekke bijwerken
+    function refreshNeighbors() {
+      fetch("/api/v1/repeaters/" + encodeURIComponent(window.MCS.slug))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          (d.neighbors || []).forEach(function (n) {
+            var row = nbBody.querySelector('tr.nbrow[data-prefix="' + n.prefix + '"]');
+            if (!row) return; // nieuwe buur verschijnt bij volgende paginalading
+            row.dataset.snr = n.snr != null ? n.snr : -999;
+            row.dataset.seen = n.last_seen || "";
+            var cells = row.children; // chev, naam, prefix, snr, balk, tijd
+            if (n.snr != null) {
+              cells[3].textContent = n.snr.toFixed(2);
+              cells[3].className = "num " +
+                (n.snr >= 0 ? "snr-good" : n.snr >= -10 ? "snr-ok" : "snr-bad");
+              var bar = row.querySelector(".snrbar i");
+              if (bar) bar.style.width = Math.max(4, Math.min(100, (n.snr + 20) / 35 * 100)) + "%";
+            }
+            var t = row.querySelector("time.reltime");
+            if (t && n.last_seen) t.setAttribute("datetime", n.last_seen);
+          });
+          updateTimes();
+          applySort();
+        })
+        .catch(function () { /* volgende poging over een minuut */ });
+    }
+    setInterval(refreshNeighbors, 60000);
+  }
+
   // --- linkkaart --------------------------------------------------------------
   function snrColor(snr) {
     if (snr == null) return "#7d8fa0";

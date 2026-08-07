@@ -164,6 +164,10 @@ tr:last-child td { border-bottom: none; }
 td.num, th.num { text-align: right; }
 td.num, td.mono { font-family: var(--mono); }
 .nbname { font-weight: 600; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+th.sortable.sort-asc::after { content: " ▲"; color: var(--accent); }
+th.sortable.sort-desc::after { content: " ▼"; color: var(--accent); }
 tr.nbrow { cursor: pointer; transition: background .1s; }
 tr.nbrow:hover td { background: rgba(53, 224, 140, .06); }
 tr.nbrow .chev { color: var(--muted); font-size: .7rem; width: 1rem; transition: color .1s; }

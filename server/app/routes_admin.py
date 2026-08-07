@@ -62,12 +62,14 @@ def logout():
 
 
 @router.get("", response_class=HTMLResponse)
-def dashboard(request: Request, new_token: str | None = None):
+def dashboard(request: Request):
     user = require_login(request)
     repeaters = db.q("SELECT * FROM repeaters ORDER BY sort_order, name")
     tokens = db.q("SELECT * FROM tokens WHERE revoked=0 ORDER BY created_at")
     layout = metrics.parse_layout(db.get_setting("layout"))
-    return templates.TemplateResponse(request, "admin/dashboard.html", {
+    # nieuw token éénmalig tonen via kortlevende cookie (niet via de URL)
+    new_token = request.cookies.get("mcs_new_token")
+    resp = templates.TemplateResponse(request, "admin/dashboard.html", {
         "site_name": config.SITE_NAME, "user": user,
         "repeaters": repeaters, "tokens": tokens,
         "csrf": auth.csrf_token(request.cookies.get(auth.SESSION_COOKIE, "")),
@@ -80,6 +82,9 @@ def dashboard(request: Request, new_token: str | None = None):
         "layout": layout,
         "block_names": metrics.BLOCK_NAMES,
     })
+    if new_token:
+        resp.delete_cookie("mcs_new_token")
+    return resp
 
 
 @router.post("/settings")
@@ -151,8 +156,10 @@ def create_token(request: Request, name: str = Form(...), csrf: str = Form(...))
     require_login(request)
     check_csrf(request, csrf)
     token = auth.create_token(name.strip() or "token")
-    # Token éénmalig tonen via querystring van de redirect
-    return RedirectResponse(f"/admin?new_token={token}", status_code=303)
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.set_cookie("mcs_new_token", token, max_age=60, httponly=True,
+                    samesite="lax", secure=_secure(request))
+    return resp
 
 
 @router.post("/tokens/{tid}/revoke")

@@ -15,6 +15,14 @@ def require_token(authorization: str | None):
         raise HTTPException(403, "Ongeldig of ingetrokken token")
 
 
+def limit_body(request: Request, max_bytes: int = 2_000_000):
+    try:
+        if int(request.headers.get("content-length") or 0) > max_bytes:
+            raise HTTPException(413, "Payload te groot")
+    except ValueError:
+        raise HTTPException(411, "Content-Length vereist")
+
+
 @router.get("/ping")
 def ping(authorization: str | None = Header(default=None)):
     """Verbindingstest voor de Home Assistant-integratie."""
@@ -26,6 +34,7 @@ def ping(authorization: str | None = Header(default=None)):
 async def contacts(request: Request, authorization: str | None = Header(default=None)):
     """Contactlocaties uit de meshcore-adverts: {"contacts": [{prefix,name,lat,lon,type}]}"""
     require_token(authorization)
+    limit_body(request)
     body = await request.json()
     items = body.get("contacts")
     if not isinstance(items, list):
@@ -52,6 +61,7 @@ async def ingest(request: Request, authorization: str | None = Header(default=No
     }
     """
     require_token(authorization)
+    limit_body(request)
     body = await request.json()
     rep = body.get("repeater") or {}
     prefix = str(rep.get("pubkey_prefix", "")).lower().strip()
