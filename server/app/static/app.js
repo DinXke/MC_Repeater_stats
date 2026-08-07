@@ -81,6 +81,63 @@
     ctx.fill();
   });
 
+  // --- thermometers (horizontale buis met bol) --------------------------------
+  document.querySelectorAll("[data-thermo]").forEach(function (tile) {
+    var canvas = tile.querySelector("canvas");
+    var ctx = canvas.getContext("2d");
+    var min = parseFloat(tile.dataset.min), max = parseFloat(tile.dataset.max);
+    var raw = parseFloat(tile.dataset.value);
+    var value = Math.min(max, Math.max(min, raw));
+    var segments = JSON.parse(tile.dataset.segments); // [[vanaf, kleur], ...]
+    var w = canvas.width, h = canvas.height;
+    var bulbR = 12, y = 40, tubeH = 12;
+    var x0 = 20 + bulbR, x1 = w - 16;
+
+    function xAt(v) { return x0 + ((v - min) / (max - min)) * (x1 - x0); }
+    function segColor(v) {
+      var c = segments[0][1];
+      for (var i = 0; i < segments.length; i++) if (v >= segments[i][0]) c = segments[i][1];
+      return c;
+    }
+    function tube(toX, r) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y - r);
+      ctx.lineTo(toX - r, y - r);
+      ctx.arc(toX - r, y, r, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(x0, y + r);
+      ctx.closePath();
+    }
+
+    // donkere buis + bol als achtergrond
+    ctx.fillStyle = "#1e2b3a";
+    tube(x1, tubeH / 2 + 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(20, y, bulbR + 2, 0, 2 * Math.PI); ctx.fill();
+
+    // gekleurde vulling tot de huidige waarde
+    var color = segColor(value);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(20, y, bulbR - 2, 0, 2 * Math.PI); ctx.fill();
+    var fx = Math.max(xAt(value), x0 + 4);
+    tube(fx, tubeH / 2 - 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // schaalstrepen met labels
+    ctx.strokeStyle = "rgba(125,143,160,.5)";
+    ctx.fillStyle = "#7d8fa0";
+    ctx.font = "9px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    [-20, 0, 20, 40, 60].forEach(function (t) {
+      if (t < min || t > max) return;
+      var tx = xAt(t);
+      ctx.beginPath();
+      ctx.moveTo(tx, y + tubeH / 2 + 4);
+      ctx.lineTo(tx, y + tubeH / 2 + 9);
+      ctx.stroke();
+      ctx.fillText(String(t), tx, y + tubeH / 2 + 20);
+    });
+  });
+
   // --- inklapbare secties (voorkeur per bezoeker in localStorage) ------------
   document.querySelectorAll("section.collapsible").forEach(function (sec) {
     var key = "mcs-collapse:" + sec.dataset.ckey;

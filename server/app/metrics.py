@@ -86,8 +86,16 @@ CHARTS = [
 # Meters (gauges): metric -> (min, max, [(vanaf, kleur), ...])
 GAUGES = {
     "battery_percentage": (0, 100, [(0, "#ff5c5c"), (25, "#ffb454"), (50, "#35e08c")]),
+    # Werkbereik van een gemiddelde 1S-lithiumcel: onder ~3,4 V wordt het kritiek
+    "bat": (3.0, 4.2, [(3.0, "#ff5c5c"), (3.4, "#ffb454"), (3.7, "#35e08c")]),
     "airtime_utilization": (0, 10, [(0, "#35e08c"), (2, "#ffb454"), (5, "#ff5c5c")]),
     "rx_airtime_utilization": (0, 100, [(0, "#35e08c"), (30, "#ffb454"), (60, "#ff5c5c")]),
+}
+
+# Thermometers: metric -> (min, max, [(vanaf, kleur), ...])
+THERMOMETERS = {
+    "ch1_temperature": (-20, 60, [(-20, "#4cc9f0"), (0, "#35e08c"), (40, "#ffb454"), (50, "#ff5c5c")]),
+    "ch2_temperature": (-20, 60, [(-20, "#4cc9f0"), (0, "#35e08c"), (40, "#ffb454"), (50, "#ff5c5c")]),
 }
 
 

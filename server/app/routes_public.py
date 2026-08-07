@@ -46,6 +46,10 @@ def repeater_page(request: Request, slug: str):
             row = latest.get(m)
             if row is None:
                 continue
+            # Ch1-spanning meet dezelfde batterij als 'bat' — dubbele tegel weglaten
+            if m == "ch1_voltage" and "bat" in latest:
+                used.add(m)
+                continue
             used.add(m)
             _, label, unit, _ = metrics.metric_info(m)
             tiles.append(_tile(m, label, unit, row))
@@ -89,7 +93,7 @@ def repeater_page(request: Request, slug: str):
     online_row = latest.get("online")
     return templates.TemplateResponse(request, "repeater.html", {
         "site_name": config.SITE_NAME, "r": r, "blocks": blocks,
-        "neighbors": neighbors, "gauges": metrics.GAUGES,
+        "neighbors": neighbors, "gauges": metrics.GAUGES, "thermos": metrics.THERMOMETERS,
         "ranges": [{"hours": h, "label": metrics.range_label(h)} for h in ranges],
         "default_hours": 24 if 24 in ranges else ranges[0],
         "is_online": online_row is not None and online_row["value"] == 1.0,

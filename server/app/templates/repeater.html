@@ -29,6 +29,15 @@
       <div class="tile-label">{{ t.label }}</div>
       <div class="tile-value">{{ t.display }}</div>
     </div>
+    {% elif t.metric in thermos and t.value is not none %}
+    <div class="tile gaugetile clickable" data-thermo="{{ t.metric }}" data-value="{{ t.value }}"
+         data-min="{{ thermos[t.metric][0] }}" data-max="{{ thermos[t.metric][1] }}"
+         data-segments='{{ thermos[t.metric][2]|tojson }}'
+         data-metric="{{ t.metric }}" data-label="{{ t.label }}" data-unit="{{ t.unit or '' }}">
+      <canvas width="180" height="96"></canvas>
+      <div class="tile-label">{{ t.label }}</div>
+      <div class="tile-value">{{ t.display }}</div>
+    </div>
     {% else %}
     <div class="tile {% if t.metric == 'online' %}{{ 'online' if t.value == 1.0 else 'offline' }}{% endif %} {% if t.value is not none %}clickable{% endif %}"
          {% if t.value is not none %}data-metric="{{ t.metric }}" data-label="{{ t.label }}" data-unit="{{ t.unit or '' }}"{% endif %}>
