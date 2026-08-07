@@ -16,6 +16,7 @@ REFRESH_PUSH_DELAY = 35  # s wachten op het LoRa-antwoord vóór de geforceerde 
 # sensor.meshcore_<prefix>_<rest> / binary_sensor.meshcore_<prefix>_<rest>
 RE_ENTITY = re.compile(r"^(?:sensor|binary_sensor)\.meshcore_([0-9a-f]{6,12})_(.+)$")
 RE_NEIGHBOR = re.compile(r"^neighbor_([0-9a-f]{6})$")
+RE_CONTACT = re.compile(r"^binary_sensor\.meshcore_.+_([0-9a-f]{12})_contact$")
 RE_NEIGHBOR_SEEN = re.compile(r"^neighbor_([0-9a-f]{6})_seen$")
 RE_NAME = re.compile(r"MeshCore Repeater: (.+?) \([0-9a-f]+\)")
 RE_NEIGHBOR_NAME = re.compile(r"Neighbor (.+?) SNR$")

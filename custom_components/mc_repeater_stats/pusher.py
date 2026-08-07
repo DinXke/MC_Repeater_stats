@@ -15,6 +15,7 @@ from .const import (
     DEBOUNCE_SECONDS,
     FULL_PUSH_INTERVAL,
     KNOWN_METRICS,
+    RE_CONTACT,
     RE_ENTITY,
     RE_NAME,
     RE_NEIGHBOR,
@@ -40,6 +41,28 @@ def discover_repeaters(hass: HomeAssistant) -> dict[str, str]:
             nm = RE_NAME.search(friendly)
             found[prefix] = nm.group(1) if nm else prefix
     return found
+
+
+def collect_contacts(hass: HomeAssistant) -> list[dict]:
+    """Locaties van alle bekende contacts (uit de advert-data van meshcore)."""
+    out: list[dict] = []
+    for state in hass.states.async_all("binary_sensor"):
+        m = RE_CONTACT.match(state.entity_id)
+        if not m:
+            continue
+        a = state.attributes
+        lat = a.get("adv_lat") or a.get("latitude")
+        lon = a.get("adv_lon") or a.get("longitude")
+        if not lat or not lon:
+            continue  # geen (bruikbare) locatie geadverteerd
+        out.append({
+            "prefix": a.get("pubkey_prefix", m.group(1)),
+            "name": a.get("adv_name"),
+            "lat": lat,
+            "lon": lon,
+            "type": a.get("node_type_str"),
+        })
+    return out
 
 
 def discover_repeater_prefixes(hass: HomeAssistant) -> set[str]:
@@ -90,6 +113,7 @@ class Pusher:
                 self.hass, self._poll_commands, timedelta(seconds=COMMAND_POLL_INTERVAL)
             )
         )
+        await self.push_contacts()
         await self.push_all()
 
     @callback
@@ -119,7 +143,23 @@ class Pusher:
             await self.push_repeater(prefix)
         return _run
 
+    async def push_contacts(self) -> None:
+        """Contactlocaties naar de site (voor de linkkaart)."""
+        contacts = collect_contacts(self.hass)
+        if not contacts:
+            return
+        try:
+            await self._session.post(
+                f"{self.base_url}/api/v1/contacts",
+                json={"contacts": contacts},
+                headers={"Authorization": f"Bearer {self.token}"},
+                timeout=30,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Contact-push naar %s mislukt: %s", self.base_url, err)
+
     async def _interval_push(self, _now) -> None:
+        await self.push_contacts()
         if self._auto_add and self._entry is not None:
             new = discover_repeater_prefixes(self.hass) - self.prefixes
             if new:

@@ -116,11 +116,13 @@ DEFAULT_LAYOUT = [
     {"key": "airtime", "visible": True},
     {"key": "other", "visible": True},
     {"key": "charts", "visible": True},
+    {"key": "map", "visible": True},
     {"key": "neighbors", "visible": True},
 ]
 BLOCK_NAMES = {
     "status": "Status", "battery": "Batterij & solar", "messages": "Berichten",
-    "airtime": "Airtime", "other": "Overig", "charts": "Grafieken", "neighbors": "Buren",
+    "airtime": "Airtime", "other": "Overig", "charts": "Grafieken",
+    "map": "Linkkaart", "neighbors": "Buren",
 }
 
 

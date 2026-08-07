@@ -22,6 +22,17 @@ def ping(authorization: str | None = Header(default=None)):
     return {"ok": True, "app": "mc-repeater-stats", "version": 1}
 
 
+@router.post("/contacts")
+async def contacts(request: Request, authorization: str | None = Header(default=None)):
+    """Contactlocaties uit de meshcore-adverts: {"contacts": [{prefix,name,lat,lon,type}]}"""
+    require_token(authorization)
+    body = await request.json()
+    items = body.get("contacts")
+    if not isinstance(items, list):
+        raise HTTPException(422, "contacts moet een lijst zijn")
+    return {"ok": True, "count": db.upsert_contacts(items)}
+
+
 @router.get("/commands")
 def commands(authorization: str | None = Header(default=None)):
     """Openstaande opdrachten voor de HA-integratie (clear-on-read):
@@ -105,6 +116,31 @@ def repeater_detail(slug: str):
     return {
         "slug": r["slug"], "name": r["name"], "pubkey_prefix": r["pubkey_prefix"],
         "last_seen": r["last_seen"], "metrics": mets, "neighbors": neighbors,
+    }
+
+
+@router.get("/repeaters/{slug}/map")
+def repeater_map(slug: str):
+    """Kaartdata: locatie van de repeater + alle buren met bekende locatie."""
+    r = _public_repeater(slug)
+    home = db.contact_location(r["pubkey_prefix"][:6])
+    links = []
+    unlocated = 0
+    for n in db.q("SELECT * FROM neighbors WHERE repeater_id=?", (r["id"],)):
+        loc = db.contact_location(n["prefix"])
+        if loc is None:
+            unlocated += 1
+            continue
+        links.append({
+            "prefix": n["prefix"], "name": n["name"] or loc["name"],
+            "snr": n["snr"], "last_seen": n["last_seen"],
+            "lat": loc["lat"], "lon": loc["lon"], "node_type": loc["node_type"],
+        })
+    return {
+        "repeater": None if home is None else
+            {"name": r["name"], "lat": home["lat"], "lon": home["lon"]},
+        "links": links,
+        "unlocated": unlocated,
     }
 
 

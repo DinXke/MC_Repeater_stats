@@ -60,6 +60,16 @@ CREATE TABLE IF NOT EXISTS settings(
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS contacts(
+  prefix TEXT PRIMARY KEY,
+  prefix6 TEXT NOT NULL,
+  name TEXT,
+  lat REAL,
+  lon REAL,
+  node_type TEXT,
+  updated TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_contacts_p6 ON contacts(prefix6);
 """
 
 
@@ -115,6 +125,33 @@ def set_setting(key: str, value: str) -> None:
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, value),
     )
+
+
+def upsert_contacts(contacts: list[dict]) -> int:
+    """Contactlocaties (advert-data) bijwerken; geeft het aantal verwerkte terug."""
+    now = utcnow()
+    n = 0
+    with _lock:
+        conn = get_conn()
+        for c in contacts:
+            prefix = str(c.get("prefix", "")).lower().strip()
+            lat, lon = c.get("lat"), c.get("lon")
+            if len(prefix) < 6 or not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+                continue
+            conn.execute(
+                "INSERT INTO contacts(prefix, prefix6, name, lat, lon, node_type, updated) "
+                "VALUES(?,?,?,?,?,?,?) ON CONFLICT(prefix) DO UPDATE SET "
+                "name=COALESCE(excluded.name, name), lat=excluded.lat, lon=excluded.lon, "
+                "node_type=COALESCE(excluded.node_type, node_type), updated=excluded.updated",
+                (prefix, prefix[:6], c.get("name"), float(lat), float(lon), c.get("type"), now),
+            )
+            n += 1
+        conn.commit()
+    return n
+
+
+def contact_location(prefix6: str):
+    return qone("SELECT * FROM contacts WHERE prefix6=?", (prefix6.lower(),))
 
 
 def request_refresh(prefix: str) -> None:

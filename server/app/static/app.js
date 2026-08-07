@@ -278,12 +278,14 @@
       modalTitle.textContent = label;
       modal.hidden = false;
       document.body.style.overflow = "hidden";
+      if (window.mcsModalMap) window.mcsModalMap(metric);
       loadModal((window.MCS && window.MCS.defaultHours) || 24);
     }
     function closeModal() {
       modal.hidden = true;
       document.body.style.overflow = "";
       if (modalChart) { modalChart.destroy(); modalChart = null; }
+      if (window.mcsModalMap) window.mcsModalMap(null);
     }
 
     rangeBtns.forEach(function (b) {
@@ -307,5 +309,127 @@
         openModal(row.dataset.metric, row.dataset.label, row.dataset.unit || "dB");
       });
     });
+    window.mcsOpenModal = openModal;
   }
+
+  // --- linkkaart --------------------------------------------------------------
+  function snrColor(snr) {
+    if (snr == null) return "#7d8fa0";
+    if (snr >= 0) return "#35e08c";
+    if (snr >= -10) return "#ffb454";
+    return "#ff5c5c";
+  }
+  var mapDataPromise = null;
+  function getMapData() {
+    if (!mapDataPromise) {
+      mapDataPromise = fetch("/api/v1/repeaters/" + encodeURIComponent(window.MCS.slug) + "/map")
+        .then(function (r) { return r.json(); });
+    }
+    return mapDataPromise;
+  }
+
+  var linkmapEl = document.getElementById("linkmap");
+  if (linkmapEl && typeof L !== "undefined" && window.MCS) {
+    getMapData().then(function (d) {
+      if (!d.repeater) {
+        linkmapEl.innerHTML = '<p class="muted" style="padding:1rem">Nog geen locatie bekend voor deze repeater.</p>';
+        return;
+      }
+      var map = L.map(linkmapEl, { scrollWheelZoom: false });
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap &copy; CARTO", maxZoom: 19,
+      }).addTo(map);
+      var home = [d.repeater.lat, d.repeater.lon];
+      L.circleMarker(home, { radius: 8, color: "#4cc9f0", weight: 2, fillColor: "#4cc9f0", fillOpacity: 1 })
+        .addTo(map).bindTooltip(d.repeater.name, { direction: "top" });
+      var bounds = [home];
+      var labelTips = [];
+      d.links.forEach(function (l) {
+        var color = snrColor(l.snr);
+        var label = (l.name || l.prefix.toUpperCase()) +
+                    (l.snr != null ? " · " + l.snr.toFixed(2) + " dB" : "");
+        var line = L.polyline([home, [l.lat, l.lon]], { color: color, weight: 2, opacity: 0.75 }).addTo(map);
+        line.bindTooltip(label, { sticky: true });
+        var marker = L.circleMarker([l.lat, l.lon], {
+          radius: 5, color: color, weight: 1.5, fillColor: color, fillOpacity: 0.9,
+        }).addTo(map);
+        marker.bindTooltip(label, { direction: "top" });
+        function open() {
+          if (window.mcsOpenModal) {
+            window.mcsOpenModal("neighbor_" + l.prefix,
+                                "Link " + (l.name || l.prefix.toUpperCase()) + " — SNR", "dB");
+          }
+        }
+        line.on("click", open);
+        marker.on("click", open);
+        labelTips.push({ marker: marker, text: l.snr != null ? l.snr.toFixed(1) : "?" });
+        bounds.push([l.lat, l.lon]);
+      });
+      map.fitBounds(bounds, { padding: [30, 30] });
+
+      // legende
+      var legend = L.control({ position: "bottomright" });
+      legend.onAdd = function () {
+        var div = L.DomUtil.create("div", "maplegend");
+        div.innerHTML = "<strong>SNR link</strong>" +
+          '<span><i style="background:#35e08c"></i> goed (&ge;0 dB)</span>' +
+          '<span><i style="background:#ffb454"></i> matig (-10..0 dB)</span>' +
+          '<span><i style="background:#ff5c5c"></i> zwak (&lt;-10 dB)</span>';
+        return div;
+      };
+      legend.addTo(map);
+
+      var note = document.getElementById("map-note");
+      if (note && d.unlocated > 0) {
+        note.textContent = d.unlocated + " buur/buren zonder bekende locatie niet getoond";
+      }
+      // togglebare SNR-labels op de knopen
+      var toggle = document.getElementById("map-labels");
+      if (toggle) {
+        toggle.addEventListener("change", function () {
+          labelTips.forEach(function (t) {
+            t.marker.unbindTooltip();
+            if (toggle.checked) {
+              t.marker.bindTooltip(t.text + " dB", {
+                permanent: true, direction: "top", className: "snrlabel", offset: [0, -4],
+              });
+            } else {
+              t.marker.bindTooltip(t.text + " dB", { direction: "top" });
+            }
+          });
+        });
+      }
+    });
+  }
+
+  // mini-kaart in het historiekvenster van een buurlink
+  var modalMapEl = document.getElementById("modal-map");
+  var modalMap = null;
+  window.mcsModalMap = function (metric) {
+    if (!modalMapEl || typeof L === "undefined") return;
+    if (modalMap) { modalMap.remove(); modalMap = null; }
+    modalMapEl.hidden = true;
+    var m = /^neighbor_([0-9a-f]{6})$/.exec(metric || "");
+    if (!m) return;
+    getMapData().then(function (d) {
+      if (!d.repeater) return;
+      var link = d.links.find(function (l) { return l.prefix === m[1]; });
+      if (!link) return;
+      modalMapEl.hidden = false;
+      modalMap = L.map(modalMapEl, { scrollWheelZoom: false, zoomControl: false });
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OSM &copy; CARTO", maxZoom: 19,
+      }).addTo(modalMap);
+      var home = [d.repeater.lat, d.repeater.lon];
+      var there = [link.lat, link.lon];
+      var color = snrColor(link.snr);
+      L.circleMarker(home, { radius: 6, color: "#4cc9f0", fillColor: "#4cc9f0", fillOpacity: 1 })
+        .addTo(modalMap).bindTooltip(d.repeater.name);
+      L.circleMarker(there, { radius: 6, color: color, fillColor: color, fillOpacity: 1 })
+        .addTo(modalMap).bindTooltip(link.name || link.prefix.toUpperCase());
+      L.polyline([home, there], { color: color, weight: 2.5, opacity: 0.85 }).addTo(modalMap);
+      modalMap.fitBounds([home, there], { padding: [25, 25] });
+      setTimeout(function () { modalMap && modalMap.invalidateSize(); }, 100);
+    });
+  };
 })();

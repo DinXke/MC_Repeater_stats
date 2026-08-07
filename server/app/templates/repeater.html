@@ -74,6 +74,20 @@
   </div>
 </section>
 
+{% elif b.type == "map" %}
+<section class="collapsible" data-ckey="map">
+  <h2 class="sec-toggle">Linkkaart <span class="sec-chev">&#9662;</span></h2>
+  <div class="sec-body">
+    <div class="card mapcard">
+      <div class="mapbar">
+        <label class="maptoggle"><input type="checkbox" id="map-labels"> SNR-labels tonen</label>
+        <span class="muted small" id="map-note"></span>
+      </div>
+      <div id="linkmap"></div>
+    </div>
+  </div>
+</section>
+
 {% elif b.type == "neighbors" %}
 <section class="collapsible" data-ckey="neighbors">
   <h2 class="sec-toggle">Buren ({{ neighbors|length }}) <span class="sec-chev">&#9662;</span></h2>
@@ -114,6 +128,7 @@
       <button type="button" data-hours="{{ rng.hours }}" {% if rng.hours == default_hours %}class="active"{% endif %}>{{ rng.label }}</button>
       {% endfor %}
     </div>
+    <div id="modal-map" hidden></div>
     <div class="chartwrap modal-chartwrap"><canvas id="modal-canvas"></canvas></div>
     <div id="modal-empty" class="muted" hidden>Nog geen historiek voor deze periode.</div>
   </div>
@@ -121,6 +136,8 @@
 <script>window.MCS = {slug: {{ r.slug|tojson }}, defaultHours: {{ default_hours }}};</script>
 {% endblock %}
 {% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="/static/app.js?v={{ asset_v }}"></script>

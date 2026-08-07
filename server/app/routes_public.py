@@ -85,6 +85,8 @@ def repeater_page(request: Request, slug: str):
         key = item["key"]
         if key == "charts" and charts:
             blocks.append({"type": "charts", "charts": charts})
+        elif key == "map" and neighbors and db.contact_location(r["pubkey_prefix"][:6]):
+            blocks.append({"type": "map"})
         elif key == "neighbors" and neighbors:
             blocks.append({"type": "neighbors"})
         elif key in sections:
