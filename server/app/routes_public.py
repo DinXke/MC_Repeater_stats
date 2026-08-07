@@ -70,9 +70,11 @@ def repeater_page(request: Request, slug: str):
         for title, mets, hours in metrics.CHARTS
         if any(m in latest for m in mets)
     ]
+    online_row = latest.get("online")
     return templates.TemplateResponse(request, "repeater.html", {
         "site_name": config.SITE_NAME, "r": r, "sections": sections,
         "neighbors": neighbors, "charts": charts, "gauges": metrics.GAUGES,
+        "is_online": online_row is not None and online_row["value"] == 1.0,
     })
 
 

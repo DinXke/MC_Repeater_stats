@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Repeaters</h1>
+<div class="pagehead">
+  <div class="pagehead-top"><h1>Repeaters</h1></div>
+  <p class="hint">Live MeshCore-repeaterstatistieken &middot; klik op een repeater voor details</p>
+</div>
 {% if not cards %}
 <p class="muted">Nog geen repeaters. Zodra Home Assistant data doorstuurt verschijnen ze hier.</p>
 {% endif %}

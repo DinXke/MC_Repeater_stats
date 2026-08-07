@@ -2,8 +2,15 @@
 {% block title %}{{ r.name }} — {{ site_name }}{% endblock %}
 {% block content %}
 <div class="pagehead">
-  <h1>{{ r.name }}</h1>
-  <div class="muted">{{ r.pubkey_prefix }}{% if r.last_seen %} &middot; laatst gezien <time class="reltime" datetime="{{ r.last_seen }}">{{ r.last_seen }}</time>{% endif %}</div>
+  <div class="pagehead-top">
+    <h1>{{ r.name }}</h1>
+    <span class="badge {{ 'on' if is_online else 'off' }}">{{ 'ONLINE' if is_online else 'OFFLINE' }}</span>
+  </div>
+  <div class="muted mono-line">
+    <span class="chip">{{ r.pubkey_prefix }}</span>
+    {% if r.last_seen %}<span>laatste update <time class="reltime" datetime="{{ r.last_seen }}">{{ r.last_seen }}</time></span>{% endif %}
+  </div>
+  <p class="hint">&#128161; Klik op een tegel of buur voor de historiek (24 u &rarr; 90 d)</p>
 </div>
 
 {% for s in sections %}
@@ -12,15 +19,17 @@
   <div class="tilegrid">
   {% for t in s.tiles %}
     {% if t.metric in gauges and t.value is not none %}
-    <div class="tile gaugetile" data-gauge="{{ t.metric }}" data-value="{{ t.value }}"
+    <div class="tile gaugetile clickable" data-gauge="{{ t.metric }}" data-value="{{ t.value }}"
          data-min="{{ gauges[t.metric][0] }}" data-max="{{ gauges[t.metric][1] }}"
-         data-segments='{{ gauges[t.metric][2]|tojson }}'>
-      <canvas width="180" height="110"></canvas>
+         data-segments='{{ gauges[t.metric][2]|tojson }}'
+         data-metric="{{ t.metric }}" data-label="{{ t.label }}" data-unit="{{ t.unit or '' }}">
+      <canvas width="180" height="96"></canvas>
       <div class="tile-label">{{ t.label }}</div>
       <div class="tile-value">{{ t.display }}</div>
     </div>
     {% else %}
-    <div class="tile {% if t.metric == 'online' %}{{ 'online' if t.value == 1.0 else 'offline' }}{% endif %}">
+    <div class="tile {% if t.metric == 'online' %}{{ 'online' if t.value == 1.0 else 'offline' }}{% endif %} {% if t.value is not none %}clickable{% endif %}"
+         {% if t.value is not none %}data-metric="{{ t.metric }}" data-label="{{ t.label }}" data-unit="{{ t.unit or '' }}"{% endif %}>
       <div class="tile-value">{{ t.display }}</div>
       <div class="tile-label">{{ t.label }}</div>
     </div>
@@ -37,7 +46,7 @@
   {% for c in charts %}
     <div class="card chartcard">
       <h3>{{ c.title }}</h3>
-      <canvas data-chart='{{ {"slug": r.slug, "metrics": c.metrics, "labels": c.labels, "hours": c.hours, "unit": c.unit}|tojson }}'></canvas>
+      <div class="chartwrap"><canvas data-chart='{{ {"slug": r.slug, "metrics": c.metrics, "labels": c.labels, "hours": c.hours, "unit": c.unit}|tojson }}'></canvas></div>
     </div>
   {% endfor %}
   </div>
@@ -47,17 +56,18 @@
 {% if neighbors %}
 <section>
   <h2>Buren ({{ neighbors|length }})</h2>
-  <div class="card">
-  <p class="muted small">Klik op een buur voor het SNR-verloop van die link (7 dagen).</p>
+  <div class="card tablecard">
   <table class="neighbors">
-    <thead><tr><th>Node</th><th>Prefix</th><th class="num">SNR (dB)</th><th>Laatst gezien</th></tr></thead>
+    <thead><tr><th></th><th>Node</th><th>Prefix</th><th class="num">SNR (dB)</th><th class="snrbar-col">Link</th><th>Laatst gehoord</th></tr></thead>
     <tbody>
     {% for n in neighbors %}
-      <tr class="nbrow" data-linkchart='{{ {"slug": r.slug, "metric": "neighbor_" ~ n.prefix, "label": (n.name or n.prefix|upper) ~ " SNR"}|tojson }}'>
-        <td>{{ n.name or n.prefix|upper }}</td>
+      <tr class="nbrow" data-metric="neighbor_{{ n.prefix }}" data-label="Link {{ n.name or n.prefix|upper }} — SNR" data-unit="dB">
+        <td class="chev">&#9656;</td>
+        <td class="nbname">{{ n.name or n.prefix|upper }}</td>
         <td class="mono">{{ n.prefix|upper }}</td>
         <td class="num {% if n.snr is not none %}{{ 'snr-good' if n.snr >= 0 else ('snr-ok' if n.snr >= -10 else 'snr-bad') }}{% endif %}">
           {{ '%.2f'|format(n.snr) if n.snr is not none else '—' }}</td>
+        <td class="snrbar-col">{% if n.snr is not none %}<div class="snrbar"><i style="width: {{ [4, [100, (n.snr + 20) / 35 * 100]|min]|max }}%"></i></div>{% endif %}</td>
         <td><time class="reltime" datetime="{{ n.last_seen }}">{{ n.last_seen }}</time></td>
       </tr>
     {% endfor %}
@@ -66,6 +76,27 @@
   </div>
 </section>
 {% endif %}
+
+<!-- historiek-modal -->
+<div id="metric-modal" class="modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-panel card">
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button type="button" class="modal-close" aria-label="Sluiten">&#10005;</button>
+    </div>
+    <div class="rangebtns" role="group">
+      <button type="button" data-hours="24" class="active">24 u</button>
+      <button type="button" data-hours="48">48 u</button>
+      <button type="button" data-hours="168">7 d</button>
+      <button type="button" data-hours="744">31 d</button>
+      <button type="button" data-hours="2160">90 d</button>
+    </div>
+    <div class="chartwrap modal-chartwrap"><canvas id="modal-canvas"></canvas></div>
+    <div id="modal-empty" class="muted" hidden>Nog geen historiek voor deze periode.</div>
+  </div>
+</div>
+<script>window.MCS = {slug: {{ r.slug|tojson }}};</script>
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
