@@ -82,7 +82,9 @@
   });
 
   // --- gedeelde grafiekbouwer ------------------------------------------------
-  function lineChart(canvas, datasets, unit, showLegend) {
+  function lineChart(canvas, datasets, unit, showLegend, hours) {
+    // Vast tijdvenster: voorkomt milliseconden-assen bij weinig datapunten
+    var now = Date.now();
     return new Chart(canvas, {
       type: "line",
       data: { datasets: datasets },
@@ -92,6 +94,8 @@
         scales: {
           x: {
             type: "time",
+            min: hours ? now - hours * 3600 * 1000 : undefined,
+            max: hours ? now : undefined,
             time: { tooltipFormat: "dd/MM HH:mm" },
             ticks: { maxTicksLimit: 7 },
             grid: { display: false },
@@ -136,7 +140,7 @@
         var datasets = results.map(function (res, i) {
           return dataset(cfg.labels[i], res.points, i, cfg.metrics.length === 1);
         });
-        lineChart(canvas, datasets, cfg.unit, cfg.metrics.length > 1);
+        lineChart(canvas, datasets, cfg.unit, cfg.metrics.length > 1, cfg.hours);
       });
   });
 
@@ -161,7 +165,7 @@
         modalCanvas.parentElement.style.display = has ? "" : "none";
         if (!has) return;
         modalChart = lineChart(modalCanvas, [dataset(current.label, res.points, 0, true)],
-                               current.unit, false);
+                               current.unit, false, hours);
       });
     }
 
