@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
-from .const import CONF_BASE_URL, CONF_REPEATERS, CONF_TOKEN, DOMAIN
+from .const import CONF_AUTO_ADD, CONF_BASE_URL, CONF_REPEATERS, CONF_TOKEN, DOMAIN
 from .pusher import discover_repeaters, validate_connection
 
 
@@ -56,12 +56,16 @@ class McRepeaterStatsConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=self._base_url,
                 data={CONF_BASE_URL: self._base_url, CONF_TOKEN: self._token},
-                options={CONF_REPEATERS: user_input[CONF_REPEATERS]},
+                options={
+                    CONF_REPEATERS: user_input[CONF_REPEATERS],
+                    CONF_AUTO_ADD: user_input.get(CONF_AUTO_ADD, True),
+                },
             )
         return self.async_show_form(
             step_id="repeaters",
             data_schema=vol.Schema({
                 vol.Required(CONF_REPEATERS, default=list(options)): cv.multi_select(options),
+                vol.Required(CONF_AUTO_ADD, default=True): cv.boolean,
             }),
         )
 
@@ -74,7 +78,10 @@ class McRepeaterStatsConfigFlow(ConfigFlow, domain=DOMAIN):
 class McRepeaterStatsOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            return self.async_create_entry(data={CONF_REPEATERS: user_input[CONF_REPEATERS]})
+            return self.async_create_entry(data={
+                CONF_REPEATERS: user_input[CONF_REPEATERS],
+                CONF_AUTO_ADD: user_input.get(CONF_AUTO_ADD, True),
+            })
         options = _repeater_options(self.hass)
         current = self.config_entry.options.get(CONF_REPEATERS, [])
         # bewaar ook eerder gekozen prefixen die nu (tijdelijk) geen entiteiten hebben
@@ -84,5 +91,7 @@ class McRepeaterStatsOptionsFlow(OptionsFlow):
             step_id="init",
             data_schema=vol.Schema({
                 vol.Required(CONF_REPEATERS, default=current or list(options)): cv.multi_select(options),
+                vol.Required(CONF_AUTO_ADD,
+                             default=self.config_entry.options.get(CONF_AUTO_ADD, True)): cv.boolean,
             }),
         )

@@ -15,7 +15,8 @@
       "repeaters": {
         "title": "Select repeaters",
         "data": {
-          "repeaters": "Repeaters to synchronise"
+          "repeaters": "Repeaters to synchronise",
+          "auto_add": "Automatically sync newly discovered repeaters"
         }
       }
     },
@@ -32,7 +33,8 @@
       "init": {
         "title": "Select repeaters",
         "data": {
-          "repeaters": "Repeaters to synchronise"
+          "repeaters": "Repeaters to synchronise",
+          "auto_add": "Automatically sync newly discovered repeaters"
         }
       }
     }

@@ -81,6 +81,34 @@
     ctx.fill();
   });
 
+  // --- admin: versleepbare indeling ------------------------------------------
+  var layoutList = document.getElementById("layout-list");
+  if (layoutList) {
+    var dragging = null;
+    layoutList.querySelectorAll("li").forEach(function (li) {
+      li.addEventListener("dragstart", function () { dragging = li; li.classList.add("dragging"); });
+      li.addEventListener("dragend", function () { li.classList.remove("dragging"); dragging = null; });
+    });
+    layoutList.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      if (!dragging) return;
+      var after = null;
+      layoutList.querySelectorAll("li:not(.dragging)").forEach(function (li) {
+        var rect = li.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2 && after === null) after = li;
+      });
+      if (after) layoutList.insertBefore(dragging, after);
+      else layoutList.appendChild(dragging);
+    });
+    document.getElementById("layout-form").addEventListener("submit", function () {
+      var out = [];
+      layoutList.querySelectorAll("li").forEach(function (li) {
+        out.push({ key: li.dataset.key, visible: li.querySelector("input[type=checkbox]").checked });
+      });
+      document.getElementById("layout-json").value = JSON.stringify(out);
+    });
+  }
+
   // --- gedeelde grafiekbouwer ------------------------------------------------
   function lineChart(canvas, datasets, unit, showLegend, hours) {
     // Vast tijdvenster: voorkomt milliseconden-assen bij weinig datapunten
@@ -178,7 +206,7 @@
       modalTitle.textContent = label;
       modal.hidden = false;
       document.body.style.overflow = "hidden";
-      loadModal(24);
+      loadModal((window.MCS && window.MCS.defaultHours) || 24);
     }
     function closeModal() {
       modal.hidden = true;

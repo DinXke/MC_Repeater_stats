@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import auth, config, db
+from . import auth, config, db, metrics
 from .templating import templates
 
 router = APIRouter(prefix="/admin")
@@ -66,12 +66,43 @@ def dashboard(request: Request, new_token: str | None = None):
     user = require_login(request)
     repeaters = db.q("SELECT * FROM repeaters ORDER BY sort_order, name")
     tokens = db.q("SELECT * FROM tokens WHERE revoked=0 ORDER BY created_at")
+    layout = metrics.parse_layout(db.get_setting("layout"))
     return templates.TemplateResponse(request, "admin/dashboard.html", {
         "site_name": config.SITE_NAME, "user": user,
         "repeaters": repeaters, "tokens": tokens,
         "csrf": auth.csrf_token(request.cookies.get(auth.SESSION_COOKIE, "")),
         "new_token": new_token,
+        "settings": {
+            "heartbeat_min": db.setting_int("heartbeat_min", config.HEARTBEAT_MIN),
+            "retention_days": db.setting_int("retention_days", config.RETENTION_DAYS),
+            "history_ranges": ",".join(str(h) for h in metrics.parse_ranges(db.get_setting("history_ranges"))),
+        },
+        "layout": layout,
+        "block_names": metrics.BLOCK_NAMES,
     })
+
+
+@router.post("/settings")
+def save_settings(request: Request, heartbeat_min: int = Form(...),
+                  retention_days: int = Form(...), history_ranges: str = Form(...),
+                  csrf: str = Form(...)):
+    require_login(request)
+    check_csrf(request, csrf)
+    db.set_setting("heartbeat_min", str(max(1, min(1440, heartbeat_min))))
+    db.set_setting("retention_days", str(max(1, min(3650, retention_days))))
+    db.set_setting("history_ranges", ",".join(str(h) for h in metrics.parse_ranges(history_ranges)))
+    db.prune()  # nieuwe bewaartermijn meteen toepassen
+    return RedirectResponse("/admin", status_code=303)
+
+
+@router.post("/layout")
+def save_layout(request: Request, layout: str = Form(...), csrf: str = Form(...)):
+    require_login(request)
+    check_csrf(request, csrf)
+    import json as _json
+    validated = metrics.parse_layout(layout)
+    db.set_setting("layout", _json.dumps(validated))
+    return RedirectResponse("/admin", status_code=303)
 
 
 @router.post("/repeaters/{rid}/toggle")

@@ -201,6 +201,21 @@ label input { width: 100%; margin-top: .25rem; }
   border: 1px solid var(--card-edge); border-radius: 6px; word-break: break-all;
   font-family: var(--mono); color: var(--accent); }
 
+/* --- admin: instellingen & indeling ----------------------------------------- */
+.settingsgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; align-items: end; }
+.settingsactions { display: flex; align-items: end; }
+#layout-list { list-style: none; margin: 0 0 .8rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+#layout-list li {
+  display: flex; align-items: center; gap: .7rem;
+  background: var(--bg-grid); border: 1px solid var(--card-edge); border-radius: 8px;
+  padding: .5rem .7rem; cursor: grab;
+}
+#layout-list li.dragging { opacity: .4; border-style: dashed; }
+#layout-list .draghandle { color: var(--muted); font-family: var(--mono); cursor: grab; }
+#layout-list .layout-name { flex: 1; font-weight: 600; }
+#layout-list .layout-visible { margin: 0; display: flex; gap: .4rem; align-items: center; color: var(--muted); font-size: .82rem; }
+#layout-list .layout-visible input { width: auto; margin: 0; }
+
 /* --- historiek-modal -------------------------------------------------------- */
 .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; }
 .modal[hidden] { display: none; }

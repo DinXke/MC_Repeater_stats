@@ -6,6 +6,7 @@ DOMAIN = "mc_repeater_stats"
 CONF_BASE_URL = "base_url"
 CONF_TOKEN = "token"
 CONF_REPEATERS = "repeaters"
+CONF_AUTO_ADD = "auto_add"
 
 DEBOUNCE_SECONDS = 10
 FULL_PUSH_INTERVAL = 300  # elke 5 min een volledige snapshot

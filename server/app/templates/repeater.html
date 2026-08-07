@@ -10,14 +10,15 @@
     <span class="chip">{{ r.pubkey_prefix }}</span>
     {% if r.last_seen %}<span>laatste update <time class="reltime" datetime="{{ r.last_seen }}">{{ r.last_seen }}</time></span>{% endif %}
   </div>
-  <p class="hint">&#128161; Klik op een tegel of buur voor de historiek (24 u &rarr; 90 d)</p>
+  <p class="hint">&#128161; Klik op een tegel of buur voor de historiek</p>
 </div>
 
-{% for s in sections %}
+{% for b in blocks %}
+{% if b.type == "section" %}
 <section>
-  <h2>{{ s.title }}</h2>
+  <h2>{{ b.section.title }}</h2>
   <div class="tilegrid">
-  {% for t in s.tiles %}
+  {% for t in b.section.tiles %}
     {% if t.metric in gauges and t.value is not none %}
     <div class="tile gaugetile clickable" data-gauge="{{ t.metric }}" data-value="{{ t.value }}"
          data-min="{{ gauges[t.metric][0] }}" data-max="{{ gauges[t.metric][1] }}"
@@ -37,13 +38,12 @@
   {% endfor %}
   </div>
 </section>
-{% endfor %}
 
-{% if charts %}
+{% elif b.type == "charts" %}
 <section>
   <h2>Grafieken</h2>
   <div class="chartgrid">
-  {% for c in charts %}
+  {% for c in b.charts %}
     <div class="card chartcard">
       <h3>{{ c.title }}</h3>
       <div class="chartwrap"><canvas data-chart='{{ {"slug": r.slug, "metrics": c.metrics, "labels": c.labels, "hours": c.hours, "unit": c.unit}|tojson }}'></canvas></div>
@@ -51,9 +51,8 @@
   {% endfor %}
   </div>
 </section>
-{% endif %}
 
-{% if neighbors %}
+{% elif b.type == "neighbors" %}
 <section>
   <h2>Buren ({{ neighbors|length }})</h2>
   <div class="card tablecard">
@@ -76,6 +75,7 @@
   </div>
 </section>
 {% endif %}
+{% endfor %}
 
 <!-- historiek-modal -->
 <div id="metric-modal" class="modal" hidden>
@@ -86,18 +86,15 @@
       <button type="button" class="modal-close" aria-label="Sluiten">&#10005;</button>
     </div>
     <div class="rangebtns" role="group">
-      <button type="button" data-hours="4">4 u</button>
-      <button type="button" data-hours="24" class="active">24 u</button>
-      <button type="button" data-hours="48">48 u</button>
-      <button type="button" data-hours="168">7 d</button>
-      <button type="button" data-hours="744">31 d</button>
-      <button type="button" data-hours="2160">90 d</button>
+      {% for rng in ranges %}
+      <button type="button" data-hours="{{ rng.hours }}" {% if rng.hours == default_hours %}class="active"{% endif %}>{{ rng.label }}</button>
+      {% endfor %}
     </div>
     <div class="chartwrap modal-chartwrap"><canvas id="modal-canvas"></canvas></div>
     <div id="modal-empty" class="muted" hidden>Nog geen historiek voor deze periode.</div>
   </div>
 </div>
-<script>window.MCS = {slug: {{ r.slug|tojson }}};</script>
+<script>window.MCS = {slug: {{ r.slug|tojson }}, defaultHours: {{ default_hours }}};</script>
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>

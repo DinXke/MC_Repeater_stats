@@ -85,6 +85,48 @@
 </section>
 
 <section>
+  <h2>Weergave &amp; data</h2>
+  <div class="card">
+  <form method="post" action="/admin/settings" class="settingsgrid">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Punt-interval grafieken (minuten)
+      <input type="number" name="heartbeat_min" value="{{ settings.heartbeat_min }}" min="1" max="1440" required>
+    </label>
+    <label>Bewaartermijn historiek (dagen)
+      <input type="number" name="retention_days" value="{{ settings.retention_days }}" min="1" max="3650" required>
+    </label>
+    <label>Historiekperiodes (uren, kommagescheiden)
+      <input name="history_ranges" value="{{ settings.history_ranges }}" placeholder="4,24,48,168,744,2160" required>
+    </label>
+    <div class="settingsactions"><button type="submit">Opslaan</button></div>
+  </form>
+  <p class="muted small">Punt-interval: hoe vaak er minstens een grafiekpunt wordt opgeslagen, ook als de waarde niet wijzigt.
+     Oudere data dan de bewaartermijn wordt bij het opslaan meteen opgeruimd. Periodes: 24 = 24 u, 168 = 7 d, 744 = 31 d.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Indeling publieke pagina</h2>
+  <div class="card">
+  <p class="muted small">Sleep de blokken in de gewenste volgorde; vink af wat verborgen moet blijven.</p>
+  <ul id="layout-list">
+    {% for item in layout %}
+    <li draggable="true" data-key="{{ item.key }}">
+      <span class="draghandle" title="Versleep om te herordenen">&#8942;&#8942;</span>
+      <span class="layout-name">{{ block_names[item.key] }}</span>
+      <label class="layout-visible"><input type="checkbox" {% if item.visible %}checked{% endif %}> zichtbaar</label>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/admin/layout" id="layout-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="layout" id="layout-json">
+    <button type="submit">Indeling opslaan</button>
+  </form>
+  </div>
+</section>
+
+<section>
   <h2>Wachtwoord wijzigen</h2>
   <div class="card">
   <form method="post" action="/admin/password" class="rowform">

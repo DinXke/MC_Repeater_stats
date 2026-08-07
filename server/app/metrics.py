@@ -94,3 +94,61 @@ GAUGES = {
 def metric_info(name: str):
     """(section, label, unit, sort) — met fallback voor onbekende metrics."""
     return CATALOG.get(name, ("other", name.replace("_", " "), None, 99))
+
+
+# ---- instelbare weergave (beheerd via /admin, opgeslagen in settings) -------
+
+DEFAULT_RANGES = [4, 24, 48, 168, 744, 2160]  # uren in het historiekvenster
+
+# Blokken op de publieke repeaterpagina, in standaardvolgorde
+DEFAULT_LAYOUT = [
+    {"key": "status", "visible": True},
+    {"key": "battery", "visible": True},
+    {"key": "messages", "visible": True},
+    {"key": "airtime", "visible": True},
+    {"key": "other", "visible": True},
+    {"key": "charts", "visible": True},
+    {"key": "neighbors", "visible": True},
+]
+BLOCK_NAMES = {
+    "status": "Status", "battery": "Batterij & solar", "messages": "Berichten",
+    "airtime": "Airtime", "other": "Overig", "charts": "Grafieken", "neighbors": "Buren",
+}
+
+
+def range_label(hours: int) -> str:
+    if hours % 24 == 0 and hours >= 24:
+        return f"{hours // 24} d"
+    return f"{hours} u"
+
+
+def parse_ranges(raw: str | None) -> list[int]:
+    if not raw:
+        return DEFAULT_RANGES
+    out = []
+    for part in raw.replace(";", ",").split(","):
+        try:
+            h = int(part.strip())
+        except ValueError:
+            continue
+        if 1 <= h <= 8760 and h not in out:
+            out.append(h)
+    return sorted(out) or DEFAULT_RANGES
+
+
+def parse_layout(raw: str | None) -> list[dict]:
+    """Valideert de opgeslagen indeling; ontbrekende blokken komen achteraan."""
+    import json
+    layout = []
+    if raw:
+        try:
+            for item in json.loads(raw):
+                key = item.get("key")
+                if key in BLOCK_NAMES and not any(b["key"] == key for b in layout):
+                    layout.append({"key": key, "visible": bool(item.get("visible", True))})
+        except (ValueError, AttributeError, TypeError):
+            layout = []
+    for block in DEFAULT_LAYOUT:
+        if not any(b["key"] == block["key"] for b in layout):
+            layout.append(dict(block))
+    return layout

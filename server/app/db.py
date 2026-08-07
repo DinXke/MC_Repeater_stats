@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS admins(
   username TEXT UNIQUE NOT NULL,
   pw_hash TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS settings(
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 """
 
 
@@ -93,6 +97,26 @@ def execute(sql: str, params=()) -> int:
         return cur.lastrowid
 
 
+def get_setting(key: str, default: str | None = None) -> str | None:
+    row = qone("SELECT value FROM settings WHERE key=?", (key,))
+    return row["value"] if row else default
+
+
+def setting_int(key: str, default: int) -> int:
+    try:
+        return int(get_setting(key, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def set_setting(key: str, value: str) -> None:
+    execute(
+        "INSERT INTO settings(key, value) VALUES(?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+
+
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return s or "repeater"
@@ -123,7 +147,8 @@ def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
     """Sla een snapshot op. Numerieke waarden gaan alleen de historiek in als
     ze wijzigden t.o.v. de laatste waarde, of als de laatste ouder is dan de
     heartbeat-interval (zodat grafieken blijven doorlopen)."""
-    heartbeat = timedelta(minutes=config.HEARTBEAT_MIN)
+    # Instelling vóór de lock uitlezen (get_setting neemt zelf de lock)
+    heartbeat = timedelta(minutes=setting_int("heartbeat_min", config.HEARTBEAT_MIN))
     with _lock:
         conn = get_conn()
         for name, raw in metrics.items():
@@ -240,7 +265,8 @@ def latest_for(repeater_id: int) -> dict[str, sqlite3.Row]:
 
 
 def prune():
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=config.RETENTION_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    retention = setting_int("retention_days", config.RETENTION_DAYS)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention)).strftime("%Y-%m-%dT%H:%M:%SZ")
     execute("DELETE FROM samples WHERE ts<?", (cutoff,))
     # Buren die 7 dagen niet meer gezien zijn verdwijnen uit de lijst
     nb_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")

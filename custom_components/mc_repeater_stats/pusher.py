@@ -40,6 +40,19 @@ def discover_repeaters(hass: HomeAssistant) -> dict[str, str]:
     return found
 
 
+def discover_repeater_prefixes(hass: HomeAssistant) -> set[str]:
+    """Alleen échte repeaters: entiteiten met een 'MeshCore Repeater:'-naam."""
+    out: set[str] = set()
+    for state in hass.states.async_all(("sensor", "binary_sensor")):
+        m = RE_ENTITY.match(state.entity_id)
+        if not m or m.group(1) in out:
+            continue
+        friendly = state.attributes.get("friendly_name") or ""
+        if RE_NAME.search(friendly):
+            out.add(m.group(1))
+    return out
+
+
 def extract_metric(rest: str) -> str | None:
     """Metricnaam uit het entity-id-deel na de prefix (knipt de nodenaam-suffix af)."""
     for metric in KNOWN_METRICS:
@@ -51,11 +64,14 @@ def extract_metric(rest: str) -> str | None:
 class Pusher:
     """Luistert naar state-wijzigingen en pusht (met debounce) snapshots per repeater."""
 
-    def __init__(self, hass: HomeAssistant, base_url: str, token: str, prefixes: list[str]) -> None:
+    def __init__(self, hass: HomeAssistant, base_url: str, token: str, prefixes: list[str],
+                 entry=None, auto_add: bool = False) -> None:
         self.hass = hass
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.prefixes = set(prefixes)
+        self._entry = entry
+        self._auto_add = auto_add
         self._session = async_get_clientsession(hass)
         self._unsub: list = []
         self._debounce: dict[str, Any] = {}
@@ -97,6 +113,15 @@ class Pusher:
         return _run
 
     async def _interval_push(self, _now) -> None:
+        if self._auto_add and self._entry is not None:
+            new = discover_repeater_prefixes(self.hass) - self.prefixes
+            if new:
+                _LOGGER.info("Nieuwe repeaters ontdekt, toevoegen aan sync: %s", ", ".join(sorted(new)))
+                options = dict(self._entry.options)
+                options["repeaters"] = sorted(self.prefixes | new)
+                # update triggert een reload; de nieuwe pusher pusht meteen alles
+                self.hass.config_entries.async_update_entry(self._entry, options=options)
+                return
         await self.push_all()
 
     async def push_all(self) -> None:

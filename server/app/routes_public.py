@@ -37,7 +37,8 @@ def repeater_page(request: Request, slug: str):
         raise HTTPException(404, "Onbekende repeater")
     latest = db.latest_for(r["id"])
 
-    sections = []
+    # tegels per sectie
+    sections: dict[str, dict] = {}
     used = set()
     for key, title in metrics.SECTIONS:
         tiles = []
@@ -48,19 +49,18 @@ def repeater_page(request: Request, slug: str):
             used.add(m)
             _, label, unit, _ = metrics.metric_info(m)
             tiles.append(_tile(m, label, unit, row))
-        # metrics die wel binnenkwamen maar niet in de vaste tegellijst staan
         extra = []
         for m, row in latest.items():
             if m in used:
                 continue
             section, label, unit, sort = metrics.metric_info(m)
             if section == key:
-                extra.append((sort, _tile(m, label, unit, row)))
-        tiles += [t for _, t in sorted(extra, key=lambda x: x[0])]
-        for _, t in sorted(extra, key=lambda x: x[0]):
-            used.add(t["metric"])
+                extra.append((sort, m, _tile(m, label, unit, row)))
+        for _, m, t in sorted(extra, key=lambda x: x[0]):
+            tiles.append(t)
+            used.add(m)
         if tiles:
-            sections.append({"key": key, "title": title, "tiles": tiles})
+            sections[key] = {"key": key, "title": title, "tiles": tiles}
 
     neighbors = db.q("SELECT * FROM neighbors WHERE repeater_id=? ORDER BY snr DESC", (r["id"],))
     charts = [
@@ -70,10 +70,28 @@ def repeater_page(request: Request, slug: str):
         for title, mets, hours in metrics.CHARTS
         if any(m in latest for m in mets)
     ]
+
+    # instelbare indeling en historiekperiodes
+    layout = metrics.parse_layout(db.get_setting("layout"))
+    ranges = metrics.parse_ranges(db.get_setting("history_ranges"))
+    blocks = []
+    for item in layout:
+        if not item["visible"]:
+            continue
+        key = item["key"]
+        if key == "charts" and charts:
+            blocks.append({"type": "charts", "charts": charts})
+        elif key == "neighbors" and neighbors:
+            blocks.append({"type": "neighbors"})
+        elif key in sections:
+            blocks.append({"type": "section", "section": sections[key]})
+
     online_row = latest.get("online")
     return templates.TemplateResponse(request, "repeater.html", {
-        "site_name": config.SITE_NAME, "r": r, "sections": sections,
-        "neighbors": neighbors, "charts": charts, "gauges": metrics.GAUGES,
+        "site_name": config.SITE_NAME, "r": r, "blocks": blocks,
+        "neighbors": neighbors, "gauges": metrics.GAUGES,
+        "ranges": [{"hours": h, "label": metrics.range_label(h)} for h in ranges],
+        "default_hours": 24 if 24 in ranges else ranges[0],
         "is_online": online_row is not None and online_row["value"] == 1.0,
     })
 
