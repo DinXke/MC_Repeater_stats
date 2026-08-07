@@ -133,7 +133,7 @@
     <div id="modal-empty" class="muted" hidden>Nog geen historiek voor deze periode.</div>
   </div>
 </div>
-<script>window.MCS = {slug: {{ r.slug|tojson }}, defaultHours: {{ default_hours }}};</script>
+<script>window.MCS = {slug: {{ r.slug|tojson }}, defaultHours: {{ default_hours }}, zones: {{ zones|tojson }}};</script>
 {% endblock %}
 {% block scripts %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">

@@ -104,6 +104,10 @@ def repeater_page(request: Request, slug: str):
         "is_admin": is_admin,
         "csrf": auth.csrf_token(session_cookie) if is_admin else "",
         "refresh_requested": request.query_params.get("refresh") == "1",
+        "zones": {
+            m: {"min": cfg[0], "max": cfg[1], "segments": cfg[2]}
+            for m, cfg in {**metrics.GAUGES, **metrics.THERMOMETERS}.items()
+        },
     })
 
 

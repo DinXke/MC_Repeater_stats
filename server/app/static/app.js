@@ -213,19 +213,61 @@
     });
   }
 
-  function dataset(label, points, i, fill) {
+  // Kleurzones per metric (zoals de meters); vloeiend verloop over de y-as
+  function zoneFor(metric) {
+    if (window.MCS && window.MCS.zones && window.MCS.zones[metric]) return window.MCS.zones[metric];
+    if (/^neighbor_[0-9a-f]{6}$/.test(metric || "")) {
+      return { min: -25, max: 15, segments: [[-25, "#ff5c5c"], [-10, "#ffb454"], [0, "#35e08c"]] };
+    }
+    return null;
+  }
+  function hexToRgba(hex, alpha) {
+    return "rgba(" + parseInt(hex.slice(1, 3), 16) + "," + parseInt(hex.slice(3, 5), 16) +
+           "," + parseInt(hex.slice(5, 7), 16) + "," + alpha + ")";
+  }
+  function zoneGradient(zone, alpha) {
+    // Scriptable Chart.js-kleur: verticale gradiënt met zachte overgangen
+    // tussen de zonekleuren (stops op het midden van elke zone).
+    return function (context) {
+      var chart = context.chart;
+      var area = chart.chartArea;
+      var yScale = chart.scales.y;
+      var last = zone.segments[zone.segments.length - 1][1];
+      if (!area || !yScale) return alpha ? hexToRgba(last, alpha) : last;
+      var g = chart.ctx.createLinearGradient(0, area.bottom, 0, area.top);
+      var lastT = -1;
+      for (var i = 0; i < zone.segments.length; i++) {
+        var from = zone.segments[i][0];
+        var to = i + 1 < zone.segments.length ? zone.segments[i + 1][0] : zone.max;
+        var mid = (from + to) / 2;
+        var px = yScale.getPixelForValue(mid);
+        var t = (area.bottom - px) / (area.bottom - area.top);
+        t = Math.min(1, Math.max(0, t));
+        if (t <= lastT) t = Math.min(1, lastT + 0.001);
+        lastT = t;
+        var color = zone.segments[i][1];
+        g.addColorStop(t, alpha ? hexToRgba(color, alpha) : color);
+      }
+      return g;
+    };
+  }
+
+  function dataset(label, points, i, fill, zone) {
+    var stroke = zone ? zoneGradient(zone) : PALETTE[i % PALETTE.length];
+    var bg = zone ? zoneGradient(zone, 0.22) : PALETTE[i % PALETTE.length] + "26";
     return {
       label: label,
       data: points.map(function (p) { return { x: p[0], y: p[1] }; }),
-      borderColor: PALETTE[i % PALETTE.length],
-      backgroundColor: PALETTE[i % PALETTE.length] + "26",
+      borderColor: stroke,
+      backgroundColor: bg,
       borderWidth: 2,
       /* markers tonen zolang de data schaars is, anders een strakke lijn */
       pointRadius: points.length < 60 ? 3 : 0,
-      pointBackgroundColor: PALETTE[i % PALETTE.length],
+      pointBackgroundColor: stroke,
+      pointBorderColor: stroke,
       pointHitRadius: 12, tension: 0.25,
       fill: !!fill,
-      borderDash: i === 1 ? [6, 3] : undefined,  /* tweede reeks gestreept (CVD) */
+      borderDash: !zone && i === 1 ? [6, 3] : undefined,  /* tweede reeks gestreept (CVD) */
     };
   }
 
@@ -241,8 +283,10 @@
     var cfg = JSON.parse(canvas.dataset.chart);
     Promise.all(cfg.metrics.map(function (m) { return fetchHistory(m, cfg.hours); }))
       .then(function (results) {
+        var single = cfg.metrics.length === 1;
         var datasets = results.map(function (res, i) {
-          return dataset(cfg.labels[i], res.points, i, cfg.metrics.length === 1);
+          return dataset(cfg.labels[i], res.points, i, single,
+                         single ? zoneFor(cfg.metrics[i]) : null);
         });
         lineChart(canvas, datasets, cfg.unit, cfg.metrics.length > 1, cfg.hours);
       });
@@ -268,7 +312,8 @@
         modalEmpty.hidden = has;
         modalCanvas.parentElement.style.display = has ? "" : "none";
         if (!has) return;
-        modalChart = lineChart(modalCanvas, [dataset(current.label, res.points, 0, true)],
+        modalChart = lineChart(modalCanvas,
+                               [dataset(current.label, res.points, 0, true, zoneFor(current.metric))],
                                current.unit, false, hours);
       });
     }
