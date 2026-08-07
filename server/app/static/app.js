@@ -81,6 +81,21 @@
     ctx.fill();
   });
 
+  // --- inklapbare secties (voorkeur per bezoeker in localStorage) ------------
+  document.querySelectorAll("section.collapsible").forEach(function (sec) {
+    var key = "mcs-collapse:" + sec.dataset.ckey;
+    try {
+      if (localStorage.getItem(key) === "1") sec.classList.add("collapsed");
+    } catch (e) { /* localStorage kan geblokkeerd zijn */ }
+    sec.querySelector("h2.sec-toggle").addEventListener("click", function () {
+      sec.classList.toggle("collapsed");
+      try {
+        if (sec.classList.contains("collapsed")) localStorage.setItem(key, "1");
+        else localStorage.removeItem(key);
+      } catch (e) { /* niets */ }
+    });
+  });
+
   // --- admin: versleepbare indeling ------------------------------------------
   var layoutList = document.getElementById("layout-list");
   if (layoutList) {

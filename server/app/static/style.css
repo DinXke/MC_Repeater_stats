@@ -56,6 +56,11 @@ h2 {
   text-transform: uppercase; letter-spacing: .2em; color: var(--accent);
 }
 h2::before { content: "▸ "; color: var(--accent-dim); }
+h2.sec-toggle { cursor: pointer; user-select: none; }
+h2.sec-toggle:hover { color: #5df0a8; }
+.sec-chev { display: inline-block; transition: transform .15s; font-size: .95em; }
+section.collapsed .sec-chev { transform: rotate(-90deg); }
+section.collapsed .sec-body { display: none; }
 h3 { font-size: .85rem; margin: 0 0 .5rem; color: var(--muted); font-weight: 600;
      font-family: var(--mono); letter-spacing: .05em; }
 .muted { color: var(--muted); }

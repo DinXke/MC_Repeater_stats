@@ -15,8 +15,9 @@
 
 {% for b in blocks %}
 {% if b.type == "section" %}
-<section>
-  <h2>{{ b.section.title }}</h2>
+<section class="collapsible" data-ckey="{{ b.section.key }}">
+  <h2 class="sec-toggle">{{ b.section.title }} <span class="sec-chev">&#9662;</span></h2>
+  <div class="sec-body">
   <div class="tilegrid">
   {% for t in b.section.tiles %}
     {% if t.metric in gauges and t.value is not none %}
@@ -37,11 +38,13 @@
     {% endif %}
   {% endfor %}
   </div>
+  </div>
 </section>
 
 {% elif b.type == "charts" %}
-<section>
-  <h2>Grafieken</h2>
+<section class="collapsible" data-ckey="charts">
+  <h2 class="sec-toggle">Grafieken <span class="sec-chev">&#9662;</span></h2>
+  <div class="sec-body">
   <div class="chartgrid">
   {% for c in b.charts %}
     <div class="card chartcard">
@@ -50,11 +53,13 @@
     </div>
   {% endfor %}
   </div>
+  </div>
 </section>
 
 {% elif b.type == "neighbors" %}
-<section>
-  <h2>Buren ({{ neighbors|length }})</h2>
+<section class="collapsible" data-ckey="neighbors">
+  <h2 class="sec-toggle">Buren ({{ neighbors|length }}) <span class="sec-chev">&#9662;</span></h2>
+  <div class="sec-body">
   <div class="card tablecard">
   <table class="neighbors">
     <thead><tr><th></th><th>Node</th><th>Prefix</th><th class="num">SNR (dB)</th><th class="snrbar-col">Link</th><th>Laatst gehoord</th></tr></thead>
@@ -72,6 +77,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   </div>
 </section>
 {% endif %}
