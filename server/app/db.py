@@ -151,12 +151,18 @@ def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
                 continue
             store = True
             if prev is not None and prev["value"] == value:
+                # Waarde ongewijzigd: alleen een heartbeat-punt als het laatst
+                # OPGESLAGEN sample (niet de laatste ingest) oud genoeg is.
+                last_sample = conn.execute(
+                    "SELECT MAX(ts) AS ts FROM samples WHERE repeater_id=? AND metric=?",
+                    (repeater_id, name),
+                ).fetchone()
                 try:
-                    prev_dt = datetime.strptime(prev["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                    prev_dt = datetime.strptime(last_sample["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
                     now_dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
                     store = (now_dt - prev_dt) >= heartbeat
-                except ValueError:
-                    store = False
+                except (TypeError, ValueError):
+                    store = True
             if store:
                 conn.execute(
                     "INSERT OR REPLACE INTO samples(repeater_id, metric, ts, value) VALUES(?,?,?,?)",
@@ -189,11 +195,25 @@ def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
                     (repeater_id, prefix, nb.get("name"), snr, last),
                 )
                 # Linkhistoriek: SNR-verloop per individuele buurlink
-                if isinstance(snr, (int, float)) and (prev_nb is None or prev_nb["snr"] != snr):
-                    conn.execute(
-                        "INSERT OR REPLACE INTO samples(repeater_id, metric, ts, value) VALUES(?,?,?,?)",
-                        (repeater_id, f"neighbor_{prefix}", ts, float(snr)),
-                    )
+                # (bij wijziging, of als heartbeat verstreken is)
+                if isinstance(snr, (int, float)):
+                    store_link = prev_nb is None or prev_nb["snr"] != snr
+                    if not store_link:
+                        last_sample = conn.execute(
+                            "SELECT MAX(ts) AS ts FROM samples WHERE repeater_id=? AND metric=?",
+                            (repeater_id, f"neighbor_{prefix}"),
+                        ).fetchone()
+                        try:
+                            prev_dt = datetime.strptime(last_sample["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                            now_dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                            store_link = (now_dt - prev_dt) >= heartbeat
+                        except (TypeError, ValueError):
+                            store_link = True
+                    if store_link:
+                        conn.execute(
+                            "INSERT OR REPLACE INTO samples(repeater_id, metric, ts, value) VALUES(?,?,?,?)",
+                            (repeater_id, f"neighbor_{prefix}", ts, float(snr)),
+                        )
         conn.execute("UPDATE repeaters SET last_seen=? WHERE id=?", (ts, repeater_id))
         conn.commit()
 

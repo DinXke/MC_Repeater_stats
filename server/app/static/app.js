@@ -119,7 +119,11 @@
       data: points.map(function (p) { return { x: p[0], y: p[1] }; }),
       borderColor: PALETTE[i % PALETTE.length],
       backgroundColor: PALETTE[i % PALETTE.length] + "26",
-      borderWidth: 2, pointRadius: 0, pointHitRadius: 12, tension: 0.25,
+      borderWidth: 2,
+      /* markers tonen zolang de data schaars is, anders een strakke lijn */
+      pointRadius: points.length < 60 ? 3 : 0,
+      pointBackgroundColor: PALETTE[i % PALETTE.length],
+      pointHitRadius: 12, tension: 0.25,
       fill: !!fill,
       borderDash: i === 1 ? [6, 3] : undefined,  /* tweede reeks gestreept (CVD) */
     };
