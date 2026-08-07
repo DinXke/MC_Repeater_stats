@@ -8,7 +8,7 @@ CONF_TOKEN = "token"
 CONF_REPEATERS = "repeaters"
 
 DEBOUNCE_SECONDS = 10
-FULL_PUSH_INTERVAL = 900  # elke 15 min een volledige snapshot
+FULL_PUSH_INTERVAL = 300  # elke 5 min een volledige snapshot
 
 # sensor.meshcore_<prefix>_<rest> / binary_sensor.meshcore_<prefix>_<rest>
 RE_ENTITY = re.compile(r"^(?:sensor|binary_sensor)\.meshcore_([0-9a-f]{6,12})_(.+)$")
