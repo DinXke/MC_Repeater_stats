@@ -5,7 +5,16 @@
   <div class="pagehead-top">
     <h1>{{ r.name }}</h1>
     <span class="badge {{ 'on' if is_online else 'off' }}">{{ 'ONLINE' if is_online else 'OFFLINE' }}</span>
+    {% if is_admin %}
+    <form method="post" action="/admin/repeaters/{{ r.id }}/refresh" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="pill refreshbtn" title="Vraag via Home Assistant een verse status en telemetrie op over LoRa">&#8635; Status opvragen</button>
+    </form>
+    {% endif %}
   </div>
+  {% if refresh_requested %}
+  <p class="hint refreshnotice">&#9203; Statusupdate aangevraagd — Home Assistant vraagt de repeater nu uit; binnen &plusmn;1 minuut verschijnt een vers datapunt.</p>
+  {% endif %}
   <div class="muted mono-line">
     <span class="chip">{{ r.pubkey_prefix }}</span>
     {% if r.last_seen %}<span>laatste update <time class="reltime" datetime="{{ r.last_seen }}">{{ r.last_seen }}</time></span>{% endif %}

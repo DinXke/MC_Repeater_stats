@@ -87,6 +87,9 @@ h3 { font-size: .85rem; margin: 0 0 .5rem; color: var(--muted); font-weight: 600
   animation: badgepulse 3s infinite;
 }
 .badge.off { color: var(--red); border-color: rgba(255, 92, 92, .4); background: rgba(255, 92, 92, .07); }
+.refreshbtn { background: transparent; border: 1px solid var(--cyan); color: var(--cyan); }
+.refreshbtn:hover { background: var(--cyan); color: #06131a; box-shadow: 0 0 12px rgba(76, 201, 240, .35); }
+.refreshnotice { color: var(--cyan); }
 @keyframes badgepulse { 50% { box-shadow: 0 0 4px rgba(53, 224, 140, .12); } }
 
 .card {

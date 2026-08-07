@@ -11,6 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import (
+    COMMAND_POLL_INTERVAL,
     DEBOUNCE_SECONDS,
     FULL_PUSH_INTERVAL,
     KNOWN_METRICS,
@@ -19,6 +20,7 @@ from .const import (
     RE_NEIGHBOR,
     RE_NEIGHBOR_NAME,
     RE_NEIGHBOR_SEEN,
+    REFRESH_PUSH_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -81,6 +83,11 @@ class Pusher:
         self._unsub.append(
             async_track_time_interval(
                 self.hass, self._interval_push, timedelta(seconds=FULL_PUSH_INTERVAL)
+            )
+        )
+        self._unsub.append(
+            async_track_time_interval(
+                self.hass, self._poll_commands, timedelta(seconds=COMMAND_POLL_INTERVAL)
             )
         )
         await self.push_all()
@@ -182,11 +189,49 @@ class Pusher:
             "neighbors": list(neighbors.values()),
         }
 
-    async def push_repeater(self, prefix: str) -> bool:
+    async def _poll_commands(self, _now) -> None:
+        """Handmatige statusverzoeken van de site ophalen en uitvoeren."""
+        try:
+            resp = await self._session.get(
+                f"{self.base_url}/api/v1/commands",
+                headers={"Authorization": f"Bearer {self.token}"},
+                timeout=15,
+            )
+            if resp.status != 200:
+                return
+            data = await resp.json()
+        except Exception:  # noqa: BLE001 - stil falen, volgende poll probeert opnieuw
+            return
+        for prefix in data.get("refresh", []):
+            if prefix in self.prefixes:
+                await self._request_status(prefix)
+
+    async def _request_status(self, prefix: str) -> None:
+        """Vraag via de meshcore-integratie een verse status + telemetrie op
+        en push even later een geforceerd datapunt met het antwoord."""
+        short = prefix[:6]
+        for command in (f"send_statusreq {short}", f"send_telemetry_req {short}"):
+            try:
+                await self.hass.services.async_call(
+                    "meshcore", "execute_command", {"command": command}, blocking=False
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("meshcore.execute_command '%s' mislukt: %s", command, err)
+        _LOGGER.info("Statusverzoek voor %s verstuurd; geforceerde push volgt over %s s",
+                     prefix, REFRESH_PUSH_DELAY)
+
+        async def _forced(_now) -> None:
+            await self.push_repeater(prefix, force=True)
+
+        async_call_later(self.hass, REFRESH_PUSH_DELAY, _forced)
+
+    async def push_repeater(self, prefix: str, force: bool = False) -> bool:
         payload = self._snapshot(prefix)
         if payload is None:
             _LOGGER.debug("Geen data voor repeater %s, push overgeslagen", prefix)
             return False
+        if force:
+            payload["force"] = True
         try:
             resp = await self._session.post(
                 f"{self.base_url}/api/v1/ingest",

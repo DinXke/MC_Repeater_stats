@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from . import config, db, metrics
+from . import auth, config, db, metrics
 from .templating import templates
 
 router = APIRouter()
@@ -91,12 +91,17 @@ def repeater_page(request: Request, slug: str):
             blocks.append({"type": "section", "section": sections[key]})
 
     online_row = latest.get("online")
+    session_cookie = request.cookies.get(auth.SESSION_COOKIE, "")
+    is_admin = auth.read_session(session_cookie) is not None
     return templates.TemplateResponse(request, "repeater.html", {
         "site_name": config.SITE_NAME, "r": r, "blocks": blocks,
         "neighbors": neighbors, "gauges": metrics.GAUGES, "thermos": metrics.THERMOMETERS,
         "ranges": [{"hours": h, "label": metrics.range_label(h)} for h in ranges],
         "default_hours": 24 if 24 in ranges else ranges[0],
         "is_online": online_row is not None and online_row["value"] == 1.0,
+        "is_admin": is_admin,
+        "csrf": auth.csrf_token(session_cookie) if is_admin else "",
+        "refresh_requested": request.query_params.get("refresh") == "1",
     })
 
 

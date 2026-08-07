@@ -10,6 +10,8 @@ CONF_AUTO_ADD = "auto_add"
 
 DEBOUNCE_SECONDS = 10
 FULL_PUSH_INTERVAL = 300  # elke 5 min een volledige snapshot
+COMMAND_POLL_INTERVAL = 30  # elke 30 s checken op handmatige statusverzoeken
+REFRESH_PUSH_DELAY = 35  # s wachten op het LoRa-antwoord vóór de geforceerde push
 
 # sensor.meshcore_<prefix>_<rest> / binary_sensor.meshcore_<prefix>_<rest>
 RE_ENTITY = re.compile(r"^(?:sensor|binary_sensor)\.meshcore_([0-9a-f]{6,12})_(.+)$")

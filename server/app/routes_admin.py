@@ -105,6 +105,18 @@ def save_layout(request: Request, layout: str = Form(...), csrf: str = Form(...)
     return RedirectResponse("/admin", status_code=303)
 
 
+@router.post("/repeaters/{rid}/refresh")
+def refresh_repeater(request: Request, rid: int, csrf: str = Form(...)):
+    """Handmatige statusupdate: verzoek in de wachtrij voor de HA-integratie."""
+    require_login(request)
+    check_csrf(request, csrf)
+    row = db.qone("SELECT slug, pubkey_prefix FROM repeaters WHERE id=?", (rid,))
+    if not row:
+        raise HTTPException(404, "Onbekende repeater")
+    db.request_refresh(row["pubkey_prefix"])
+    return RedirectResponse(f"/r/{row['slug']}?refresh=1", status_code=303)
+
+
 @router.post("/repeaters/{rid}/toggle")
 def toggle_repeater(request: Request, rid: int, csrf: str = Form(...)):
     require_login(request)

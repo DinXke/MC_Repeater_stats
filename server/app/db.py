@@ -117,6 +117,30 @@ def set_setting(key: str, value: str) -> None:
     )
 
 
+def request_refresh(prefix: str) -> None:
+    """Zet een handmatig statusverzoek klaar voor de HA-integratie."""
+    import json
+    d = {}
+    try:
+        d = json.loads(get_setting("refresh_requests", "{}"))
+    except ValueError:
+        pass
+    d[prefix] = utcnow()
+    set_setting("refresh_requests", json.dumps(d))
+
+
+def pop_refresh_requests() -> list[str]:
+    """Haalt openstaande verzoeken op en wist ze (afgeleverd aan HA)."""
+    import json
+    try:
+        d = json.loads(get_setting("refresh_requests", "{}"))
+    except ValueError:
+        d = {}
+    if d:
+        set_setting("refresh_requests", "{}")
+    return list(d)
+
+
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return s or "repeater"
@@ -143,10 +167,12 @@ def get_or_create_repeater(pubkey_prefix: str, name: str | None) -> sqlite3.Row:
     return qone("SELECT * FROM repeaters WHERE pubkey_prefix=?", (pubkey_prefix,))
 
 
-def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
+def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None,
+           force: bool = False):
     """Sla een snapshot op. Numerieke waarden gaan alleen de historiek in als
     ze wijzigden t.o.v. de laatste waarde, of als de laatste ouder is dan de
-    heartbeat-interval (zodat grafieken blijven doorlopen)."""
+    heartbeat-interval (zodat grafieken blijven doorlopen). Met force=True
+    (handmatige statusupdate) wordt altijd een punt weggeschreven."""
     # Instelling vóór de lock uitlezen (get_setting neemt zelf de lock)
     heartbeat = timedelta(minutes=setting_int("heartbeat_min", config.HEARTBEAT_MIN))
     with _lock:
@@ -175,7 +201,7 @@ def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
             if value is None:
                 continue
             store = True
-            if prev is not None and prev["value"] == value:
+            if not force and prev is not None and prev["value"] == value:
                 # Waarde ongewijzigd: alleen een heartbeat-punt als het laatst
                 # OPGESLAGEN sample (niet de laatste ingest) oud genoeg is.
                 last_sample = conn.execute(
@@ -222,7 +248,7 @@ def ingest(repeater_id: int, ts: str, metrics: dict, neighbors: list | None):
                 # Linkhistoriek: SNR-verloop per individuele buurlink
                 # (bij wijziging, of als heartbeat verstreken is)
                 if isinstance(snr, (int, float)):
-                    store_link = prev_nb is None or prev_nb["snr"] != snr
+                    store_link = force or prev_nb is None or prev_nb["snr"] != snr
                     if not store_link:
                         last_sample = conn.execute(
                             "SELECT MAX(ts) AS ts FROM samples WHERE repeater_id=? AND metric=?",

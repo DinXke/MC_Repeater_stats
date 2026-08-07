@@ -22,6 +22,14 @@ def ping(authorization: str | None = Header(default=None)):
     return {"ok": True, "app": "mc-repeater-stats", "version": 1}
 
 
+@router.get("/commands")
+def commands(authorization: str | None = Header(default=None)):
+    """Openstaande opdrachten voor de HA-integratie (clear-on-read):
+    {"refresh": ["e3d3f4d7ed", ...]} — handmatige statusverzoeken uit de admin."""
+    require_token(authorization)
+    return {"refresh": db.pop_refresh_requests()}
+
+
 @router.post("/ingest")
 async def ingest(request: Request, authorization: str | None = Header(default=None)):
     """Snapshot van één repeater. Payload:
@@ -43,7 +51,7 @@ async def ingest(request: Request, authorization: str | None = Header(default=No
         raise HTTPException(422, "metrics moet een object zijn")
     row = db.get_or_create_repeater(prefix, rep.get("name"))
     ts = body.get("ts") or db.utcnow()
-    db.ingest(row["id"], ts, mets, body.get("neighbors"))
+    db.ingest(row["id"], ts, mets, body.get("neighbors"), force=bool(body.get("force")))
 
     global _ingest_count
     _ingest_count += 1
