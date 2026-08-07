@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ r.name }} — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>{{ r.name }}</h1>
+  <div class="muted">{{ r.pubkey_prefix }}{% if r.last_seen %} &middot; laatst gezien <time class="reltime" datetime="{{ r.last_seen }}">{{ r.last_seen }}</time>{% endif %}</div>
+</div>
+
+{% for s in sections %}
+<section>
+  <h2>{{ s.title }}</h2>
+  <div class="tilegrid">
+  {% for t in s.tiles %}
+    {% if t.metric in gauges and t.value is not none %}
+    <div class="tile gaugetile" data-gauge="{{ t.metric }}" data-value="{{ t.value }}"
+         data-min="{{ gauges[t.metric][0] }}" data-max="{{ gauges[t.metric][1] }}"
+         data-segments='{{ gauges[t.metric][2]|tojson }}'>
+      <canvas width="180" height="110"></canvas>
+      <div class="tile-label">{{ t.label }}</div>
+      <div class="tile-value">{{ t.display }}</div>
+    </div>
+    {% else %}
+    <div class="tile {% if t.metric == 'online' %}{{ 'online' if t.value == 1.0 else 'offline' }}{% endif %}">
+      <div class="tile-value">{{ t.display }}</div>
+      <div class="tile-label">{{ t.label }}</div>
+    </div>
+    {% endif %}
+  {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+{% if charts %}
+<section>
+  <h2>Grafieken</h2>
+  <div class="chartgrid">
+  {% for c in charts %}
+    <div class="card chartcard">
+      <h3>{{ c.title }}</h3>
+      <canvas data-chart='{{ {"slug": r.slug, "metrics": c.metrics, "labels": c.labels, "hours": c.hours, "unit": c.unit}|tojson }}'></canvas>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if neighbors %}
+<section>
+  <h2>Buren ({{ neighbors|length }})</h2>
+  <div class="card">
+  <p class="muted small">Klik op een buur voor het SNR-verloop van die link (7 dagen).</p>
+  <table class="neighbors">
+    <thead><tr><th>Node</th><th>Prefix</th><th class="num">SNR (dB)</th><th>Laatst gezien</th></tr></thead>
+    <tbody>
+    {% for n in neighbors %}
+      <tr class="nbrow" data-linkchart='{{ {"slug": r.slug, "metric": "neighbor_" ~ n.prefix, "label": (n.name or n.prefix|upper) ~ " SNR"}|tojson }}'>
+        <td>{{ n.name or n.prefix|upper }}</td>
+        <td class="mono">{{ n.prefix|upper }}</td>
+        <td class="num {% if n.snr is not none %}{{ 'snr-good' if n.snr >= 0 else ('snr-ok' if n.snr >= -10 else 'snr-bad') }}{% endif %}">
+          {{ '%.2f'|format(n.snr) if n.snr is not none else '—' }}</td>
+        <td><time class="reltime" datetime="{{ n.last_seen }}">{{ n.last_seen }}</time></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="/static/app.js"></script>
+{% endblock %}

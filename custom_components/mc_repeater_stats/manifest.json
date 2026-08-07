@@ -1,0 +1,13 @@
+{
+  "domain": "mc_repeater_stats",
+  "name": "MC Repeater Stats",
+  "codeowners": ["@DinXke"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/DinXke/MC_Repeater_stats",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/DinXke/MC_Repeater_stats/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
