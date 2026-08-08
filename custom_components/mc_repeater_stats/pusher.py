@@ -1,6 +1,8 @@
 """Verzamelt MeshCore-repeaterdata uit de HA-state-machine en pusht die naar de site."""
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from datetime import timedelta
 from typing import Any
@@ -22,6 +24,8 @@ from .const import (
     RE_NEIGHBOR_NAME,
     RE_NEIGHBOR_SEEN,
     REFRESH_PUSH_DELAY,
+    SETTINGS_LOGIN_WAIT,
+    SETTINGS_RESPONSE_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -90,16 +94,18 @@ class Pusher:
     """Luistert naar state-wijzigingen en pusht (met debounce) snapshots per repeater."""
 
     def __init__(self, hass: HomeAssistant, base_url: str, token: str, prefixes: list[str],
-                 entry=None, auto_add: bool = False) -> None:
+                 entry=None, auto_add: bool = False, passwords: dict[str, str] | None = None) -> None:
         self.hass = hass
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.prefixes = set(prefixes)
         self._entry = entry
         self._auto_add = auto_add
+        self._passwords = passwords or {}
         self._session = async_get_clientsession(hass)
         self._unsub: list = []
         self._debounce: dict[str, Any] = {}
+        self._settings_busy = False
 
     async def async_start(self) -> None:
         self._unsub.append(self.hass.bus.async_listen(EVENT_STATE_CHANGED, self._on_state_changed))
@@ -245,6 +251,11 @@ class Pusher:
         for prefix in data.get("refresh", []):
             if prefix in self.prefixes:
                 await self._request_status(prefix)
+        for req in data.get("settings", []):
+            prefix = req.get("prefix")
+            params = [str(p)[:64] for p in (req.get("params") or [])][:40]
+            if prefix in self.prefixes and params and not self._settings_busy:
+                self.hass.async_create_task(self._fetch_settings(prefix, params))
 
     async def _request_status(self, prefix: str) -> None:
         """Vraag via de meshcore-integratie een verse status + telemetrie op
@@ -264,6 +275,58 @@ class Pusher:
             await self.push_repeater(prefix, force=True)
 
         async_call_later(self.hass, REFRESH_PUSH_DELAY, _forced)
+
+    async def _fetch_settings(self, prefix: str, params: list[str]) -> None:
+        """Log in op de repeater en haal CLI-instellingen op via 'send_cmd get <param>'.
+        Antwoorden komen binnen via het meshcore_cli_response-event."""
+        self._settings_busy = True
+        short = prefix[:6]
+        password = self._passwords.get(prefix) or self._passwords.get(short) or ""
+        results: dict[str, Any] = {}
+        got = asyncio.Event()
+        latest: dict[str, Any] = {}
+
+        @callback
+        def _on_response(event) -> None:
+            latest["data"] = event.data
+            got.set()
+
+        unsub = self.hass.bus.async_listen("meshcore_cli_response", _on_response)
+        try:
+            login_cmd = f"send_login {short} {password}".strip()
+            await self.hass.services.async_call(
+                "meshcore", "execute_command", {"command": login_cmd}, blocking=True
+            )
+            await asyncio.sleep(SETTINGS_LOGIN_WAIT)
+            for param in params:
+                got.clear()
+                latest.clear()
+                await self.hass.services.async_call(
+                    "meshcore", "execute_command",
+                    {"command": f'send_cmd {short} "get {param}"'}, blocking=True,
+                )
+                try:
+                    await asyncio.wait_for(got.wait(), timeout=SETTINGS_RESPONSE_TIMEOUT)
+                    results[param] = _response_text(latest.get("data"))
+                except asyncio.TimeoutError:
+                    results[param] = None
+                await asyncio.sleep(2)  # LoRa even ademruimte geven
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Settings-opvraging voor %s mislukt: %s", prefix, err)
+        finally:
+            unsub()
+            self._settings_busy = False
+        answered = sum(1 for v in results.values() if v is not None)
+        _LOGGER.info("Settings %s: %s/%s beantwoord", prefix, answered, len(params))
+        try:
+            await self._session.post(
+                f"{self.base_url}/api/v1/repeater_settings",
+                json={"repeater": {"pubkey_prefix": prefix}, "settings": results},
+                headers={"Authorization": f"Bearer {self.token}"},
+                timeout=30,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Settings-push voor %s mislukt: %s", prefix, err)
 
     async def push_repeater(self, prefix: str, force: bool = False) -> bool:
         payload = self._snapshot(prefix)
@@ -289,6 +352,23 @@ class Pusher:
         except Exception as err:  # noqa: BLE001 - netwerkfouten mogen de loop niet breken
             _LOGGER.warning("Push voor %s naar %s mislukt: %s", prefix, self.base_url, err)
             return False
+
+
+def _response_text(data: Any) -> str | None:
+    """Haal de leesbare tekst uit een meshcore_cli_response-event, met een
+    tolerante fallback voor onbekende veldnamen."""
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        for key in ("response", "text", "message", "result", "payload"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:500]
+        try:
+            return json.dumps(data, default=str, ensure_ascii=False)[:500]
+        except (TypeError, ValueError):
+            return str(data)[:500]
+    return str(data)[:500]
 
 
 async def validate_connection(hass: HomeAssistant, base_url: str, token: str) -> bool:

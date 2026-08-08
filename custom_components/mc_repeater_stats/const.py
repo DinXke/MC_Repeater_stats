@@ -7,6 +7,10 @@ CONF_BASE_URL = "base_url"
 CONF_TOKEN = "token"
 CONF_REPEATERS = "repeaters"
 CONF_AUTO_ADD = "auto_add"
+CONF_PASSWORDS = "passwords"  # {prefix: repeater-admin-wachtwoord}
+
+SETTINGS_LOGIN_WAIT = 12   # s wachten na send_login
+SETTINGS_RESPONSE_TIMEOUT = 12  # s wachten op antwoord per get-commando
 
 DEBOUNCE_SECONDS = 10
 FULL_PUSH_INTERVAL = 300  # elke 5 min een volledige snapshot

@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 
-from .const import CONF_AUTO_ADD, CONF_BASE_URL, CONF_REPEATERS, CONF_TOKEN, DOMAIN
+from .const import CONF_AUTO_ADD, CONF_BASE_URL, CONF_PASSWORDS, CONF_REPEATERS, CONF_TOKEN, DOMAIN
 from .pusher import Pusher
 
 
@@ -16,6 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.options.get(CONF_REPEATERS, []),
         entry=entry,
         auto_add=entry.options.get(CONF_AUTO_ADD, False),
+        passwords=entry.options.get(CONF_PASSWORDS, {}),
     )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = pusher
     await pusher.async_start()

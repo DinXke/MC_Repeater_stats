@@ -36,6 +36,10 @@
           "repeaters": "Repeaters to synchronise",
           "auto_add": "Automatically sync newly discovered repeaters"
         }
+      },
+      "passwords": {
+        "title": "Repeater passwords",
+        "description": "Optional: admin password per repeater ({repeaters}). Needed to fetch CLI settings; leave empty to keep the existing password."
       }
     }
   }

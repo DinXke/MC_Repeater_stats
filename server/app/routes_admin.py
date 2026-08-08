@@ -122,6 +122,46 @@ def refresh_repeater(request: Request, rid: int, csrf: str = Form(...)):
     return RedirectResponse(f"/r/{row['slug']}?refresh=1", status_code=303)
 
 
+@router.get("/repeaters/{rid}/settings", response_class=HTMLResponse)
+def repeater_settings_page(request: Request, rid: int):
+    """Readonly-overzicht van de CLI-instellingen van een repeater."""
+    user = require_login(request)
+    rep = db.qone("SELECT * FROM repeaters WHERE id=?", (rid,))
+    if not rep:
+        raise HTTPException(404, "Onbekende repeater")
+    return templates.TemplateResponse(request, "admin/repeater_settings.html", {
+        "site_name": config.SITE_NAME, "user": user, "rep": rep,
+        "settings_rows": db.cli_settings_for(rid),
+        "cli_params": db.get_setting("cli_params", db.DEFAULT_CLI_PARAMS),
+        "csrf": auth.csrf_token(request.cookies.get(auth.SESSION_COOKIE, "")),
+        "requested": request.query_params.get("requested") == "1",
+    })
+
+
+@router.post("/repeaters/{rid}/settings/refresh")
+def repeater_settings_refresh(request: Request, rid: int, csrf: str = Form(...)):
+    """Vraag de CLI-instellingen op via de HA-integratie (LoRa, duurt 1-2 min)."""
+    require_login(request)
+    check_csrf(request, csrf)
+    rep = db.qone("SELECT pubkey_prefix FROM repeaters WHERE id=?", (rid,))
+    if not rep:
+        raise HTTPException(404, "Onbekende repeater")
+    raw = db.get_setting("cli_params", db.DEFAULT_CLI_PARAMS)
+    params = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()][:40]
+    db.request_settings(rep["pubkey_prefix"], params)
+    return RedirectResponse(f"/admin/repeaters/{rid}/settings?requested=1", status_code=303)
+
+
+@router.post("/cli_params")
+def save_cli_params(request: Request, cli_params: str = Form(...),
+                    rid: int = Form(...), csrf: str = Form(...)):
+    require_login(request)
+    check_csrf(request, csrf)
+    cleaned = ",".join(p.strip() for p in cli_params.replace(";", ",").split(",") if p.strip())
+    db.set_setting("cli_params", cleaned or db.DEFAULT_CLI_PARAMS)
+    return RedirectResponse(f"/admin/repeaters/{rid}/settings", status_code=303)
+
+
 @router.post("/repeaters/{rid}/toggle")
 def toggle_repeater(request: Request, rid: int, csrf: str = Form(...)):
     require_login(request)

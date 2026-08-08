@@ -70,6 +70,13 @@ CREATE TABLE IF NOT EXISTS contacts(
   updated TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_contacts_p6 ON contacts(prefix6);
+CREATE TABLE IF NOT EXISTS repeater_cli(
+  repeater_id INTEGER NOT NULL REFERENCES repeaters(id) ON DELETE CASCADE,
+  param TEXT NOT NULL,
+  value TEXT,
+  updated TEXT NOT NULL,
+  PRIMARY KEY(repeater_id, param)
+);
 """
 
 
@@ -152,6 +159,52 @@ def upsert_contacts(contacts: list[dict]) -> int:
 
 def contact_location(prefix6: str):
     return qone("SELECT * FROM contacts WHERE prefix6=?", (prefix6.lower(),))
+
+
+DEFAULT_CLI_PARAMS = ("name,role,freq,bw,sf,cr,tx,af,repeat,advert.interval,"
+                      "flood.advert.interval,flood.max,allow.read.only,"
+                      "direct.tx.delay,rxdelay,txdelay,region")
+
+
+def request_settings(prefix: str, params: list[str]) -> None:
+    """Zet een CLI-settings-opvraging klaar voor de HA-integratie."""
+    import json
+    try:
+        d = json.loads(get_setting("settings_requests", "{}"))
+    except ValueError:
+        d = {}
+    d[prefix] = {"ts": utcnow(), "params": params}
+    set_setting("settings_requests", json.dumps(d))
+
+
+def pop_settings_requests() -> list[dict]:
+    import json
+    try:
+        d = json.loads(get_setting("settings_requests", "{}"))
+    except ValueError:
+        d = {}
+    if d:
+        set_setting("settings_requests", "{}")
+    return [{"prefix": p, "params": v.get("params", [])} for p, v in d.items()]
+
+
+def upsert_cli_settings(repeater_id: int, values: dict) -> None:
+    now = utcnow()
+    with _lock:
+        conn = get_conn()
+        for param, value in values.items():
+            conn.execute(
+                "INSERT INTO repeater_cli(repeater_id, param, value, updated) VALUES(?,?,?,?) "
+                "ON CONFLICT(repeater_id, param) DO UPDATE SET "
+                "value=excluded.value, updated=excluded.updated",
+                (repeater_id, str(param)[:64],
+                 None if value is None else str(value)[:500], now),
+            )
+        conn.commit()
+
+
+def cli_settings_for(repeater_id: int) -> list:
+    return q("SELECT * FROM repeater_cli WHERE repeater_id=? ORDER BY param", (repeater_id,))
 
 
 def request_refresh(prefix: str) -> None:

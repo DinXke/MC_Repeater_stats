@@ -36,6 +36,10 @@
           "repeaters": "Repeaters om te synchroniseren",
           "auto_add": "Nieuw ontdekte repeaters automatisch synchroniseren"
         }
+      },
+      "passwords": {
+        "title": "Repeater-wachtwoorden",
+        "description": "Optioneel: admin-wachtwoord per repeater ({repeaters}). Nodig om CLI-instellingen op te vragen; leeg laten behoudt het bestaande wachtwoord."
       }
     }
   }

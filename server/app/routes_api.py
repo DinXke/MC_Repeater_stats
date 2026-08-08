@@ -45,9 +45,26 @@ async def contacts(request: Request, authorization: str | None = Header(default=
 @router.get("/commands")
 def commands(authorization: str | None = Header(default=None)):
     """Openstaande opdrachten voor de HA-integratie (clear-on-read):
-    {"refresh": ["e3d3f4d7ed", ...]} — handmatige statusverzoeken uit de admin."""
+    refresh = handmatige statusverzoeken; settings = CLI-settings-opvragingen."""
     require_token(authorization)
-    return {"refresh": db.pop_refresh_requests()}
+    return {"refresh": db.pop_refresh_requests(), "settings": db.pop_settings_requests()}
+
+
+@router.post("/repeater_settings")
+async def repeater_settings(request: Request, authorization: str | None = Header(default=None)):
+    """CLI-instellingen van een repeater: {"repeater": {"pubkey_prefix"}, "settings": {param: waarde}}"""
+    require_token(authorization)
+    limit_body(request)
+    body = await request.json()
+    prefix = str((body.get("repeater") or {}).get("pubkey_prefix", "")).lower().strip()
+    values = body.get("settings")
+    if not prefix or not isinstance(values, dict):
+        raise HTTPException(422, "repeater.pubkey_prefix en settings vereist")
+    row = db.qone("SELECT id FROM repeaters WHERE pubkey_prefix=?", (prefix,))
+    if not row:
+        raise HTTPException(404, "Onbekende repeater")
+    db.upsert_cli_settings(row["id"], values)
+    return {"ok": True, "count": len(values)}
 
 
 @router.post("/ingest")

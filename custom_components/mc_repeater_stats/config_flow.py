@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
-from .const import CONF_AUTO_ADD, CONF_BASE_URL, CONF_REPEATERS, CONF_TOKEN, DOMAIN
+from .const import CONF_AUTO_ADD, CONF_BASE_URL, CONF_PASSWORDS, CONF_REPEATERS, CONF_TOKEN, DOMAIN
 from .pusher import discover_repeaters, validate_connection
 
 
@@ -76,12 +76,16 @@ class McRepeaterStatsConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class McRepeaterStatsOptionsFlow(OptionsFlow):
+    def __init__(self) -> None:
+        self._selection: dict[str, Any] = {}
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            return self.async_create_entry(data={
+            self._selection = {
                 CONF_REPEATERS: user_input[CONF_REPEATERS],
                 CONF_AUTO_ADD: user_input.get(CONF_AUTO_ADD, True),
-            })
+            }
+            return await self.async_step_passwords()
         options = _repeater_options(self.hass)
         current = self.config_entry.options.get(CONF_REPEATERS, [])
         # bewaar ook eerder gekozen prefixen die nu (tijdelijk) geen entiteiten hebben
@@ -94,4 +98,30 @@ class McRepeaterStatsOptionsFlow(OptionsFlow):
                 vol.Required(CONF_AUTO_ADD,
                              default=self.config_entry.options.get(CONF_AUTO_ADD, True)): cv.boolean,
             }),
+        )
+
+    async def async_step_passwords(self, user_input: dict[str, Any] | None = None):
+        """Optioneel: admin-wachtwoord per repeater (voor CLI-settings-opvraging)."""
+        selected = self._selection.get(CONF_REPEATERS, [])
+        stored: dict[str, str] = dict(self.config_entry.options.get(CONF_PASSWORDS, {}))
+        if user_input is not None:
+            for prefix in selected:
+                value = (user_input.get(f"pw_{prefix}") or "").strip()
+                if value:
+                    stored[prefix] = value
+                elif prefix in stored and user_input.get(f"pw_{prefix}") == "":
+                    # leeg gelaten veld behoudt het bestaande wachtwoord
+                    pass
+            return self.async_create_entry(data={**self._selection, CONF_PASSWORDS: stored})
+        names = _repeater_options(self.hass)
+        schema: dict = {}
+        for prefix in selected:
+            schema[vol.Optional(f"pw_{prefix}",
+                                description={"suggested_value": ""})] = cv.string
+        return self.async_show_form(
+            step_id="passwords",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "repeaters": ", ".join(names.get(p, p) for p in selected),
+            },
         )

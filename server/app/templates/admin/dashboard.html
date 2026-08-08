@@ -27,7 +27,7 @@
           </form>
         </td>
         <td class="mono">{{ rep.pubkey_prefix }}</td>
-        <td class="mono"><a href="/r/{{ rep.slug }}">{{ rep.slug }}</a></td>
+        <td class="mono"><a href="/r/{{ rep.slug }}">{{ rep.slug }}</a> &middot; <a href="/admin/repeaters/{{ rep.id }}/settings">&#9881;</a></td>
         <td>
           <form method="post" action="/admin/repeaters/{{ rep.id }}/toggle" class="inline">
             <input type="hidden" name="csrf" value="{{ csrf }}">
