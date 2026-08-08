@@ -169,6 +169,7 @@ tr:last-child td { border-bottom: none; }
 td.num, th.num { text-align: right; }
 td.num, td.mono { font-family: var(--mono); }
 .nbname { font-weight: 600; }
+td.prewrap { white-space: pre-wrap; word-break: break-word; max-width: 480px; }
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--text); }
 th.sortable.sort-asc::after { content: " ▲"; color: var(--accent); }

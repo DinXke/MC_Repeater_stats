@@ -10,7 +10,9 @@ CONF_AUTO_ADD = "auto_add"
 CONF_PASSWORDS = "passwords"  # {prefix: repeater-admin-wachtwoord}
 
 SETTINGS_LOGIN_WAIT = 12   # s wachten na send_login
-SETTINGS_RESPONSE_TIMEOUT = 12  # s wachten op antwoord per get-commando
+SETTINGS_RESPONSE_TIMEOUT = 12  # s wachten op het eerste antwoord per get-commando
+SETTINGS_QUIET_GAP = 5     # s stilte voor we een meerregelig antwoord afsluiten
+SETTINGS_PARAM_CAP = 45    # harde limiet per parameter (bv. lange region-lijsten)
 
 DEBOUNCE_SECONDS = 10
 FULL_PUSH_INTERVAL = 300  # elke 5 min een volledige snapshot

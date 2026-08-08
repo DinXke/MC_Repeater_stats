@@ -198,7 +198,7 @@ def upsert_cli_settings(repeater_id: int, values: dict) -> None:
                 "ON CONFLICT(repeater_id, param) DO UPDATE SET "
                 "value=excluded.value, updated=excluded.updated",
                 (repeater_id, str(param)[:64],
-                 None if value is None else str(value)[:500], now),
+                 None if value is None else str(value)[:4000], now),
             )
         conn.commit()
 

@@ -29,7 +29,7 @@
     {% for row in settings_rows %}
       <tr>
         <td class="mono">{{ row.param }}</td>
-        <td class="mono">{% if row.value is not none %}{{ row.value }}{% else %}<span class="muted">(geen antwoord)</span>{% endif %}</td>
+        <td class="mono prewrap">{% if row.value is not none %}{{ row.value }}{% else %}<span class="muted">(geen antwoord)</span>{% endif %}</td>
         <td>{% if row.updated %}<time class="reltime" datetime="{{ row.updated }}">{{ row.updated }}</time>{% endif %}</td>
       </tr>
     {% else %}

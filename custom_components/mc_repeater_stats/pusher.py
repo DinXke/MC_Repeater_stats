@@ -25,6 +25,8 @@ from .const import (
     RE_NEIGHBOR_SEEN,
     REFRESH_PUSH_DELAY,
     SETTINGS_LOGIN_WAIT,
+    SETTINGS_PARAM_CAP,
+    SETTINGS_QUIET_GAP,
     SETTINGS_RESPONSE_TIMEOUT,
 )
 
@@ -284,11 +286,13 @@ class Pusher:
         password = self._passwords.get(prefix) or self._passwords.get(short) or ""
         results: dict[str, Any] = {}
         got = asyncio.Event()
-        latest: dict[str, Any] = {}
+        buffer: list[str] = []
 
         @callback
         def _on_response(event) -> None:
-            latest["data"] = event.data
+            text = _response_text(event.data)
+            if text:
+                buffer.append(text)
             got.set()
 
         unsub = self.hass.bus.async_listen("meshcore_cli_response", _on_response)
@@ -298,18 +302,29 @@ class Pusher:
                 "meshcore", "execute_command", {"command": login_cmd}, blocking=True
             )
             await asyncio.sleep(SETTINGS_LOGIN_WAIT)
+            loop = asyncio.get_running_loop()
             for param in params:
+                buffer.clear()
                 got.clear()
-                latest.clear()
                 await self.hass.services.async_call(
                     "meshcore", "execute_command",
                     {"command": f'send_cmd {short} "get {param}"'}, blocking=True,
                 )
                 try:
                     await asyncio.wait_for(got.wait(), timeout=SETTINGS_RESPONSE_TIMEOUT)
-                    results[param] = _response_text(latest.get("data"))
                 except asyncio.TimeoutError:
                     results[param] = None
+                    continue
+                # Meerregelige antwoorden (bv. region) komen als losse pakketten:
+                # blijf verzamelen tot het SETTINGS_QUIET_GAP s stil is.
+                deadline = loop.time() + SETTINGS_PARAM_CAP
+                while loop.time() < deadline:
+                    got.clear()
+                    try:
+                        await asyncio.wait_for(got.wait(), timeout=SETTINGS_QUIET_GAP)
+                    except asyncio.TimeoutError:
+                        break
+                results[param] = "\n".join(buffer) or None
                 await asyncio.sleep(2)  # LoRa even ademruimte geven
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Settings-opvraging voor %s mislukt: %s", prefix, err)
