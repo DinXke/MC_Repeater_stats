@@ -68,7 +68,9 @@ def repeater_page(request: Request, slug: str):
 
     # naam uit de neighbor-sensor, met de contactendatabase (adverts) als fallback
     neighbors = db.q(
-        "SELECT n.prefix, n.snr, n.last_seen, COALESCE(n.name, c.name) AS name "
+        "SELECT n.prefix, n.snr, n.last_seen, "
+        "CASE WHEN n.name IS NULL OR lower(n.name) = n.prefix "
+        "THEN COALESCE(c.name, n.name) ELSE n.name END AS name "
         "FROM neighbors n LEFT JOIN contacts c ON c.prefix6 = n.prefix "
         "WHERE n.repeater_id=? ORDER BY n.snr DESC",
         (r["id"],),
