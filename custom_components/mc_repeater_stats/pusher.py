@@ -295,7 +295,23 @@ class Pusher:
                 buffer.append(text)
             got.set()
 
-        unsub = self.hass.bus.async_listen("meshcore_cli_response", _on_response)
+        @callback
+        def _on_message(event) -> None:
+            # CLI-antwoorden van de repeater komen binnen als direct bericht
+            # (meshcore_message) van dat contact, met "> " ervoor.
+            data = event.data or {}
+            sender = str(data.get("pubkey_prefix", "")).lower()
+            if not sender.startswith(short):
+                return
+            text = str(data.get("message", "")).strip()
+            if text.startswith(">"):
+                text = text.lstrip("> ").rstrip()
+            if text:
+                buffer.append(text)
+                got.set()
+
+        unsub_cli = self.hass.bus.async_listen("meshcore_cli_response", _on_response)
+        unsub_msg = self.hass.bus.async_listen("meshcore_message", _on_message)
         try:
             login_cmd = f"send_login {short} {password}".strip()
             await self.hass.services.async_call(
@@ -329,7 +345,8 @@ class Pusher:
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Settings-opvraging voor %s mislukt: %s", prefix, err)
         finally:
-            unsub()
+            unsub_cli()
+            unsub_msg()
             self._settings_busy = False
         answered = sum(1 for v in results.values() if v is not None)
         _LOGGER.info("Settings %s: %s/%s beantwoord", prefix, answered, len(params))
