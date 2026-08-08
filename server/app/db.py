@@ -192,6 +192,13 @@ def upsert_cli_settings(repeater_id: int, values: dict) -> None:
     now = utcnow()
     with _lock:
         conn = get_conn()
+        # parameters die niet meer opgevraagd worden verdwijnen uit het overzicht
+        keep = [str(p)[:64] for p in values]
+        placeholders = ",".join("?" for _ in keep) or "''"
+        conn.execute(
+            f"DELETE FROM repeater_cli WHERE repeater_id=? AND param NOT IN ({placeholders})",
+            [repeater_id, *keep],
+        )
         for param, value in values.items():
             conn.execute(
                 "INSERT INTO repeater_cli(repeater_id, param, value, updated) VALUES(?,?,?,?) "
