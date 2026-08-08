@@ -66,7 +66,13 @@ def repeater_page(request: Request, slug: str):
         if tiles:
             sections[key] = {"key": key, "title": title, "tiles": tiles}
 
-    neighbors = db.q("SELECT * FROM neighbors WHERE repeater_id=? ORDER BY snr DESC", (r["id"],))
+    # naam uit de neighbor-sensor, met de contactendatabase (adverts) als fallback
+    neighbors = db.q(
+        "SELECT n.prefix, n.snr, n.last_seen, COALESCE(n.name, c.name) AS name "
+        "FROM neighbors n LEFT JOIN contacts c ON c.prefix6 = n.prefix "
+        "WHERE n.repeater_id=? ORDER BY n.snr DESC",
+        (r["id"],),
+    )
     charts = [
         {"title": title, "metrics": mets, "hours": hours,
          "labels": [metrics.metric_info(m)[1] for m in mets],

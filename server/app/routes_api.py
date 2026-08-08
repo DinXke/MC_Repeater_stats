@@ -121,7 +121,12 @@ def repeater_detail(slug: str):
         }
     neighbors = [
         {"prefix": n["prefix"], "name": n["name"], "snr": n["snr"], "last_seen": n["last_seen"]}
-        for n in db.q("SELECT * FROM neighbors WHERE repeater_id=? ORDER BY snr DESC", (r["id"],))
+        for n in db.q(
+            "SELECT n.prefix, n.snr, n.last_seen, COALESCE(n.name, c.name) AS name "
+            "FROM neighbors n LEFT JOIN contacts c ON c.prefix6 = n.prefix "
+            "WHERE n.repeater_id=? ORDER BY n.snr DESC",
+            (r["id"],),
+        )
     ]
     return {
         "slug": r["slug"], "name": r["name"], "pubkey_prefix": r["pubkey_prefix"],

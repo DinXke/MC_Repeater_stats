@@ -364,7 +364,7 @@
     var sortState = { key: "snr", dir: -1 };
     try {
       var saved = JSON.parse(localStorage.getItem("mcs-nbsort"));
-      if (saved && ["name", "snr", "seen"].indexOf(saved.key) !== -1) sortState = saved;
+      if (saved && ["name", "prefix", "snr", "seen"].indexOf(saved.key) !== -1) sortState = saved;
     } catch (e) { /* niets */ }
 
     function applySort() {
@@ -372,6 +372,7 @@
       rows.sort(function (a, b) {
         var av, bv;
         if (sortState.key === "name") { av = a.dataset.name; bv = b.dataset.name; }
+        else if (sortState.key === "prefix") { av = a.dataset.prefix; bv = b.dataset.prefix; }
         else if (sortState.key === "seen") { av = a.dataset.seen; bv = b.dataset.seen; }
         else { av = parseFloat(a.dataset.snr); bv = parseFloat(b.dataset.snr); }
         if (av < bv) return -sortState.dir;
@@ -393,8 +394,8 @@
         if (sortState.key === key) {
           sortState.dir = -sortState.dir;
         } else {
-          // logische standaard: naam oplopend, SNR en laatst-gehoord aflopend
-          sortState = { key: key, dir: key === "name" ? 1 : -1 };
+          // logische standaard: naam/prefix oplopend, SNR en laatst-gehoord aflopend
+          sortState = { key: key, dir: (key === "name" || key === "prefix") ? 1 : -1 };
         }
         try { localStorage.setItem("mcs-nbsort", JSON.stringify(sortState)); } catch (e) { /* niets */ }
         applySort();
