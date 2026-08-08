@@ -319,7 +319,8 @@ class Pusher:
             )
             await asyncio.sleep(SETTINGS_LOGIN_WAIT)
             loop = asyncio.get_running_loop()
-            for param in params:
+
+            async def _get_param(param: str) -> str | None:
                 buffer.clear()
                 got.clear()
                 await self.hass.services.async_call(
@@ -329,8 +330,7 @@ class Pusher:
                 try:
                     await asyncio.wait_for(got.wait(), timeout=SETTINGS_RESPONSE_TIMEOUT)
                 except asyncio.TimeoutError:
-                    results[param] = None
-                    continue
+                    return None
                 # Meerregelige antwoorden (bv. region) komen als losse pakketten:
                 # blijf verzamelen tot het SETTINGS_QUIET_GAP s stil is.
                 deadline = loop.time() + SETTINGS_PARAM_CAP
@@ -340,8 +340,15 @@ class Pusher:
                         await asyncio.wait_for(got.wait(), timeout=SETTINGS_QUIET_GAP)
                     except asyncio.TimeoutError:
                         break
-                results[param] = "\n".join(buffer) or None
+                return "\n".join(buffer) or None
+
+            for param in params:
+                results[param] = await _get_param(param)
                 await asyncio.sleep(2)  # LoRa even ademruimte geven
+            # één herkansingsronde voor antwoorden die over LoRa verloren gingen
+            for param in [p for p, v in results.items() if v is None]:
+                results[param] = await _get_param(param)
+                await asyncio.sleep(2)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Settings-opvraging voor %s mislukt: %s", prefix, err)
         finally:
