@@ -127,7 +127,7 @@
     ctx.fillStyle = "#7d8fa0";
     ctx.font = "9px 'JetBrains Mono', monospace";
     ctx.textAlign = "center";
-    [-20, 0, 20, 40, 60].forEach(function (t) {
+    [-20, 0, 20, 40, 60, 80].forEach(function (t) {
       if (t < min || t > max) return;
       var tx = xAt(t);
       ctx.beginPath();

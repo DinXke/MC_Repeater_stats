@@ -94,8 +94,8 @@ GAUGES = {
 
 # Thermometers: metric -> (min, max, [(vanaf, kleur), ...])
 THERMOMETERS = {
-    "ch1_temperature": (-20, 60, [(-20, "#4cc9f0"), (0, "#35e08c"), (40, "#ffb454"), (50, "#ff5c5c")]),
-    "ch2_temperature": (-20, 60, [(-20, "#4cc9f0"), (0, "#35e08c"), (40, "#ffb454"), (50, "#ff5c5c")]),
+    "ch1_temperature": (-20, 80, [(-20, "#4cc9f0"), (0, "#35e08c"), (45, "#ffb454"), (60, "#ff5c5c")]),
+    "ch2_temperature": (-20, 80, [(-20, "#4cc9f0"), (0, "#35e08c"), (45, "#ffb454"), (60, "#ff5c5c")]),
 }
 
 
