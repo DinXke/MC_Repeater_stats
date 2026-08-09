@@ -384,6 +384,28 @@ def history(repeater_id: int, metric: str, hours: int) -> list[tuple[str, float]
     return [(r["bucket"], round(r["value"], 3)) for r in rows]
 
 
+def computed_utilization(repeater_id: int, total_metric: str, window_min: int = 90) -> float | None:
+    """Benutting (%) berekend uit de airtime-totalen: Δairtime / Δtijd.
+    Robuust tegen HA-herstarts (die de meshcore-berekening telkens resetten)."""
+    since = (datetime.now(timezone.utc) - timedelta(minutes=window_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = q(
+        "SELECT ts, value FROM samples WHERE repeater_id=? AND metric=? AND ts>=? ORDER BY ts",
+        (repeater_id, total_metric, since),
+    )
+    if len(rows) < 2:
+        return None
+    try:
+        t0 = datetime.strptime(rows[0]["ts"], "%Y-%m-%dT%H:%M:%SZ")
+        t1 = datetime.strptime(rows[-1]["ts"], "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+    dt_min = (t1 - t0).total_seconds() / 60
+    dv_min = rows[-1]["value"] - rows[0]["value"]  # airtime is in minuten
+    if dt_min < 10 or dv_min < 0:  # te weinig venster, of teller-reset
+        return None
+    return round(dv_min / dt_min * 100, 2)
+
+
 def latest_for(repeater_id: int) -> dict[str, sqlite3.Row]:
     return {r["metric"]: r for r in q("SELECT * FROM latest WHERE repeater_id=?", (repeater_id,))}
 

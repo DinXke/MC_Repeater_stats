@@ -37,6 +37,13 @@ def repeater_page(request: Request, slug: str):
         raise HTTPException(404, "Onbekende repeater")
     latest = db.latest_for(r["id"])
 
+    # Benutting zelf berekenen uit de airtime-totalen; de HA-waarde valt na
+    # elke HA-herstart terug op 0 tot het meetvenster daar weer opgebouwd is.
+    computed = {
+        "airtime_utilization": db.computed_utilization(r["id"], "airtime"),
+        "rx_airtime_utilization": db.computed_utilization(r["id"], "rx_airtime"),
+    }
+
     # tegels per sectie
     sections: dict[str, dict] = {}
     used = set()
@@ -52,7 +59,11 @@ def repeater_page(request: Request, slug: str):
                 continue
             used.add(m)
             _, label, unit, _ = metrics.metric_info(m)
-            tiles.append(_tile(m, label, unit, row))
+            tile = _tile(m, label, unit, row)
+            if computed.get(m) is not None:
+                tile["value"] = computed[m]
+                tile["display"] = f"{computed[m]:g} {unit}" if unit else f"{computed[m]:g}"
+            tiles.append(tile)
         extra = []
         for m, row in latest.items():
             if m in used:
