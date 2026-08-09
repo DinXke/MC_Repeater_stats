@@ -520,7 +520,21 @@
 
       var note = document.getElementById("map-note");
       if (note && d.unlocated > 0) {
-        note.textContent = d.unlocated + " buur/buren zonder bekende locatie niet getoond";
+        var link = document.createElement("a");
+        link.href = "#";
+        link.textContent = d.unlocated + " buur/buren zonder bekende locatie niet op de kaart ▸";
+        note.appendChild(link);
+        var list = document.createElement("div");
+        list.className = "map-missing";
+        list.hidden = true;
+        list.textContent = "Nog geen advert met locatie ontvangen van: " +
+                           (d.unlocated_names || []).join(" · ");
+        note.parentElement.parentElement.insertBefore(list, note.parentElement.nextSibling);
+        link.addEventListener("click", function (e) {
+          e.preventDefault();
+          list.hidden = !list.hidden;
+          link.textContent = link.textContent.slice(0, -1) + (list.hidden ? "▸" : "▾");
+        });
       }
       // togglebare SNR-labels op de knopen
       var toggle = document.getElementById("map-labels");

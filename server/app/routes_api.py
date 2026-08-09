@@ -159,11 +159,18 @@ def repeater_map(slug: str):
     r = _public_repeater(slug)
     home = db.contact_location(r["pubkey_prefix"][:6])
     links = []
-    unlocated = 0
-    for n in db.q("SELECT * FROM neighbors WHERE repeater_id=?", (r["id"],)):
+    unlocated = []
+    for n in db.q(
+        "SELECT n.prefix, n.snr, n.last_seen, "
+        "CASE WHEN n.name IS NULL OR lower(n.name) = n.prefix "
+        "THEN COALESCE(c.name, n.name) ELSE n.name END AS name "
+        "FROM neighbors n LEFT JOIN contacts c ON c.prefix6 = n.prefix "
+        "WHERE n.repeater_id=?",
+        (r["id"],),
+    ):
         loc = db.contact_location(n["prefix"])
         if loc is None:
-            unlocated += 1
+            unlocated.append(n["name"] or n["prefix"].upper())
             continue
         links.append({
             "prefix": n["prefix"], "name": n["name"] or loc["name"],
@@ -174,7 +181,8 @@ def repeater_map(slug: str):
         "repeater": None if home is None else
             {"name": r["name"], "lat": home["lat"], "lon": home["lon"]},
         "links": links,
-        "unlocated": unlocated,
+        "unlocated": len(unlocated),
+        "unlocated_names": sorted(unlocated, key=str.lower),
     }
 
 
