@@ -18,6 +18,7 @@
       {% if c.battery is not none %}<span title="Batterij">&#128267; {{ '%.0f'|format(c.battery) }}%</span>{% endif %}
       {% if c.uptime is not none %}<span title="Uptime">&#9201;&#65039; {{ '%.1f'|format(c.uptime) }} d</span>{% endif %}
       {% if c.neighbors is not none %}<span title="Buren">&#128246; {{ c.neighbors|int }}</span>{% endif %}
+      {% if c.temperature is not none %}<span title="Temperatuur">&#127777;&#65039; {{ '%.0f'|format(c.temperature) }}&deg;</span>{% endif %}
     </div>
     <div class="muted small">{{ c.prefix }}{% if c.last_seen %} &middot; laatst gezien <time class="reltime" datetime="{{ c.last_seen }}">{{ c.last_seen }}</time>{% endif %}</div>
   </a>

@@ -24,6 +24,7 @@ def index(request: Request):
             "battery": val("battery_percentage"),
             "uptime": val("uptime"),
             "neighbors": val("neighbor_count"),
+            "temperature": val("ch1_temperature") or val("ch2_temperature"),
         })
     return templates.TemplateResponse(request, "index.html", {
         "site_name": config.SITE_NAME, "cards": cards,
