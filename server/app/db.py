@@ -191,10 +191,14 @@ def pop_settings_requests() -> list[dict]:
 
 def upsert_cli_settings(repeater_id: int, values: dict) -> None:
     now = utcnow()
+    # Opruimen op basis van de geconfigureerde parameterlijst (niet de push
+    # zelf): een gedeeltelijke heropvraging mag bestaande rijen niet wissen.
+    configured = {p.strip() for p in
+                  (get_setting("cli_params", DEFAULT_CLI_PARAMS) or "").replace(";", ",").split(",")
+                  if p.strip()}
+    keep = [str(p)[:64] for p in ({str(k)[:64] for k in values} | configured)]
     with _lock:
         conn = get_conn()
-        # parameters die niet meer opgevraagd worden verdwijnen uit het overzicht
-        keep = [str(p)[:64] for p in values]
         placeholders = ",".join("?" for _ in keep) or "''"
         conn.execute(
             f"DELETE FROM repeater_cli WHERE repeater_id=? AND param NOT IN ({placeholders})",
