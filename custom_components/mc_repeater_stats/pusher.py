@@ -107,7 +107,8 @@ class Pusher:
         self._session = async_get_clientsession(hass)
         self._unsub: list = []
         self._debounce: dict[str, Any] = {}
-        self._settings_busy = False
+        # settings-opvragingen serialiseren: één tegelijk over de LoRa-ether
+        self._settings_lock = asyncio.Lock()
 
     async def async_start(self) -> None:
         self._unsub.append(self.hass.bus.async_listen(EVENT_STATE_CHANGED, self._on_state_changed))
@@ -256,7 +257,7 @@ class Pusher:
         for req in data.get("settings", []):
             prefix = req.get("prefix")
             params = [str(p)[:64] for p in (req.get("params") or [])][:40]
-            if prefix in self.prefixes and params and not self._settings_busy:
+            if prefix in self.prefixes and params:
                 self.hass.async_create_task(self._fetch_settings(prefix, params))
 
     async def _request_status(self, prefix: str) -> None:
@@ -279,9 +280,13 @@ class Pusher:
         async_call_later(self.hass, REFRESH_PUSH_DELAY, _forced)
 
     async def _fetch_settings(self, prefix: str, params: list[str]) -> None:
-        """Log in op de repeater en haal CLI-instellingen op via 'send_cmd get <param>'.
-        Antwoorden komen binnen via het meshcore_cli_response-event."""
-        self._settings_busy = True
+        """Log in op de repeater en haal CLI-instellingen op. Antwoorden komen
+        binnen als meshcore_message-berichten van de repeater. De lock zorgt
+        dat opvragingen voor meerdere repeaters na elkaar lopen."""
+        async with self._settings_lock:
+            await self._fetch_settings_inner(prefix, params)
+
+    async def _fetch_settings_inner(self, prefix: str, params: list[str]) -> None:
         short = prefix[:6]
         password = self._passwords.get(prefix) or self._passwords.get(short) or ""
         results: dict[str, Any] = {}
@@ -356,7 +361,6 @@ class Pusher:
         finally:
             unsub_cli()
             unsub_msg()
-            self._settings_busy = False
         answered = sum(1 for v in results.values() if v is not None)
         _LOGGER.info("Settings %s: %s/%s beantwoord", prefix, answered, len(params))
         try:
