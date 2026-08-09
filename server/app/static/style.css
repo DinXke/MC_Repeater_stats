@@ -14,8 +14,36 @@
   --green: #35e08c;
   --orange: #ffb454;
   --border: #1e2b3a;
+  --topbar-bg: rgba(11, 15, 20, .82);
+  --tooltip-bg: #0b0f14;
+  --backdrop: rgba(5, 8, 12, .75);
+  --thermo-track: #1e2b3a;
+  --gridline: rgba(255, 255, 255, .014);
+  --chart-grid: rgba(125, 143, 160, .12);
   --sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "JetBrains Mono", "Cascadia Code", ui-monospace, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #eef3f1;
+  --bg-grid: #e2eae6;
+  --card: #ffffff;
+  --card-edge: #d2ddd7;
+  --text: #16241d;
+  --muted: #5b6b63;
+  --accent: #0e9c60;
+  --accent-dim: #0b7a4b;
+  --amber: #b8741a;
+  --cyan: #0b7fa8;
+  --red: #cf3b3b;
+  --green: #0e9c60;
+  --orange: #b8741a;
+  --border: #d2ddd7;
+  --topbar-bg: rgba(255, 255, 255, .86);
+  --tooltip-bg: #ffffff;
+  --backdrop: rgba(25, 38, 32, .45);
+  --thermo-track: #d2ddd7;
+  --gridline: rgba(10, 40, 25, .04);
+  --chart-grid: rgba(70, 90, 80, .16);
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); scrollbar-color: var(--card-edge) var(--bg); }
@@ -23,10 +51,10 @@ body {
   margin: 0; color: var(--text);
   font: 15px/1.5 var(--sans);
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(53, 224, 140, .08), transparent),
-    radial-gradient(circle at 90% 15%, rgba(76, 201, 240, .05), transparent 35%),
-    repeating-linear-gradient(0deg, transparent 0 23px, rgba(255,255,255,.014) 23px 24px),
-    repeating-linear-gradient(90deg, transparent 0 23px, rgba(255,255,255,.014) 23px 24px),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(53, 224, 140, .07), transparent),
+    radial-gradient(circle at 90% 15%, rgba(76, 201, 240, .04), transparent 35%),
+    repeating-linear-gradient(0deg, transparent 0 23px, var(--gridline) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, var(--gridline) 23px 24px),
     var(--bg);
   background-attachment: fixed;
   min-height: 100vh;
@@ -37,10 +65,16 @@ a { color: var(--cyan); text-decoration: none; }
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
   padding: .7rem 1.2rem;
-  background: rgba(11, 15, 20, .82); backdrop-filter: blur(8px);
+  background: var(--topbar-bg); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 10;
 }
+.topbar nav { display: flex; gap: .9rem; align-items: center; }
+#theme-toggle {
+  background: transparent; border: 1px solid var(--card-edge); color: var(--muted);
+  border-radius: 99px; padding: .2rem .55rem; font-size: .9rem; line-height: 1;
+}
+#theme-toggle:hover { color: var(--text); border-color: var(--muted); background: transparent; box-shadow: none; }
 .brand {
   font-family: var(--mono); font-weight: 700; color: var(--accent);
   font-size: 1rem; letter-spacing: .03em;
@@ -246,28 +280,29 @@ label input { width: 100%; margin-top: .25rem; }
 #modal-map[hidden] { display: none; }
 .leaflet-container { font: inherit; }
 .leaflet-tooltip {
-  background: #0b0f14; border: 1px solid var(--card-edge); color: var(--text);
-  font-family: var(--mono); font-size: .78rem; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  background: var(--tooltip-bg); border: 1px solid var(--card-edge); color: var(--text);
+  font-family: var(--mono); font-size: .78rem; box-shadow: 0 2px 8px rgba(0,0,0,.35);
 }
 .leaflet-tooltip-top:before { border-top-color: var(--card-edge); }
 .snrlabel { padding: 1px 5px; font-size: .7rem; opacity: .95; }
 .maplegend {
-  background: rgba(11, 15, 20, .88); border: 1px solid var(--card-edge); border-radius: 8px;
+  background: var(--topbar-bg); border: 1px solid var(--card-edge); border-radius: 8px;
   padding: .5rem .7rem; color: var(--text); font-size: .78rem; line-height: 1.7;
 }
 .maplegend strong { display: block; font-family: var(--mono); font-size: .7rem;
   text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: .2rem; }
 .maplegend span { display: flex; align-items: center; gap: .45rem; }
 .maplegend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
-.leaflet-control-attribution { background: rgba(11, 15, 20, .7) !important; color: var(--muted) !important; }
+.leaflet-control-attribution { background: var(--topbar-bg) !important; color: var(--muted) !important; }
 .leaflet-control-attribution a { color: var(--muted) !important; }
 .leaflet-control-zoom a { background: var(--card) !important; color: var(--text) !important;
   border-color: var(--card-edge) !important; }
 
 /* --- historiek-modal -------------------------------------------------------- */
-.modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; }
+/* z-index boven de Leaflet-kaart (die gebruikt tot ~1000) */
+.modal { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; }
 .modal[hidden] { display: none; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(5, 8, 12, .75); backdrop-filter: blur(3px); }
+.modal-backdrop { position: absolute; inset: 0; background: var(--backdrop); backdrop-filter: blur(3px); }
 .modal-panel {
   position: relative; width: min(860px, calc(100vw - 2rem));
   box-shadow: 0 24px 64px rgba(0, 0, 0, .6), 0 0 0 1px rgba(53, 224, 140, .1);

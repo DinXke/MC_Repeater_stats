@@ -3,14 +3,33 @@
   "use strict";
 
   var PALETTE = ["#2bb673", "#e8913a", "#3aa7d0", "#e06c9f"];
-  var TEXT_MUTED = "#7d8fa0";
-  var GRID = "rgba(125, 143, 160, .12)";
+  // Themakleuren uit de CSS-variabelen (licht/donker)
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  var THEME = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  var TEXT = cssVar("--text", "#d7e2ea");
+  var TEXT_MUTED = cssVar("--muted", "#7d8fa0");
+  var GRID = cssVar("--chart-grid", "rgba(125, 143, 160, .12)");
+  var TILE_URL = "https://{s}.basemaps.cartocdn.com/" +
+    (THEME === "light" ? "light_all" : "dark_all") + "/{z}/{x}/{y}{r}.png";
 
   if (typeof Chart !== "undefined") {
     Chart.defaults.color = TEXT_MUTED;
     Chart.defaults.borderColor = GRID;
     Chart.defaults.font.family = "'JetBrains Mono', Consolas, monospace";
     Chart.defaults.font.size = 11;
+  }
+
+  // thema-schakelaar (voorkeur lokaal; herladen zodat grafieken/kaart meekleuren)
+  var themeBtn = document.getElementById("theme-toggle");
+  if (themeBtn) {
+    themeBtn.textContent = THEME === "light" ? "☾" : "☀";
+    themeBtn.addEventListener("click", function () {
+      localStorage.setItem("mcs-theme", THEME === "light" ? "dark" : "light");
+      location.reload();
+    });
   }
 
   // --- relatieve tijdstippen -------------------------------------------------
@@ -73,11 +92,11 @@
     ctx.moveTo(cx, cy);
     ctx.lineTo(cx + (r - 16) * Math.cos(a), cy + (r - 16) * Math.sin(a));
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#d7e2ea";
+    ctx.strokeStyle = TEXT;
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(cx, cy, 3.5, 0, 2 * Math.PI);
-    ctx.fillStyle = "#d7e2ea";
+    ctx.fillStyle = TEXT;
     ctx.fill();
   });
 
@@ -109,7 +128,7 @@
     }
 
     // donkere buis + bol als achtergrond
-    ctx.fillStyle = "#1e2b3a";
+    ctx.fillStyle = cssVar("--thermo-track", "#1e2b3a");
     tube(x1, tubeH / 2 + 2); ctx.fill();
     ctx.beginPath(); ctx.arc(20, y, bulbR + 2, 0, 2 * Math.PI); ctx.fill();
 
@@ -123,8 +142,8 @@
     ctx.shadowBlur = 0;
 
     // schaalstrepen met labels
-    ctx.strokeStyle = "rgba(125,143,160,.5)";
-    ctx.fillStyle = "#7d8fa0";
+    ctx.strokeStyle = TEXT_MUTED;
+    ctx.fillStyle = TEXT_MUTED;
     ctx.font = "9px 'JetBrains Mono', monospace";
     ctx.textAlign = "center";
     [-20, 0, 20, 40, 60, 80].forEach(function (t) {
@@ -205,8 +224,8 @@
         plugins: {
           legend: { display: !!showLegend, labels: { boxWidth: 14, boxHeight: 2 } },
           tooltip: {
-            backgroundColor: "#0b0f14", borderColor: "#1e2b3a", borderWidth: 1,
-            titleColor: "#d7e2ea", bodyColor: "#d7e2ea", padding: 10,
+            backgroundColor: cssVar("--tooltip-bg", "#0b0f14"), borderColor: cssVar("--card-edge", "#1e2b3a"), borderWidth: 1,
+            titleColor: TEXT, bodyColor: TEXT, padding: 10,
           },
         },
       },
@@ -456,7 +475,7 @@
         return;
       }
       var map = L.map(linkmapEl, { scrollWheelZoom: false });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      L.tileLayer(TILE_URL, {
         attribution: "&copy; OpenStreetMap &copy; CARTO", maxZoom: 19,
       }).addTo(map);
       var home = [d.repeater.lat, d.repeater.lon];
@@ -537,7 +556,7 @@
       if (!link) return;
       modalMapEl.hidden = false;
       modalMap = L.map(modalMapEl, { scrollWheelZoom: false, zoomControl: false });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      L.tileLayer(TILE_URL, {
         attribution: "&copy; OSM &copy; CARTO", maxZoom: 19,
       }).addTo(modalMap);
       var home = [d.repeater.lat, d.repeater.lon];
