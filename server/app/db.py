@@ -161,9 +161,10 @@ def contact_location(prefix6: str):
     return qone("SELECT * FROM contacts WHERE prefix6=?", (prefix6.lower(),))
 
 
+# 'cmd:'-prefix = letterlijk CLI-commando (zonder 'get ' ervoor)
 DEFAULT_CLI_PARAMS = ("name,role,radio,freq,tx,af,repeat,advert.interval,"
                       "flood.advert.interval,flood.max,allow.read.only,"
-                      "direct.tx.delay,rxdelay,txdelay,lat,lon,region")
+                      "rxdelay,txdelay,lat,lon,cmd:region")
 
 
 def request_settings(prefix: str, params: list[str]) -> None:
