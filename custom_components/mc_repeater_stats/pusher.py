@@ -323,9 +323,11 @@ class Pusher:
             async def _get_param(param: str) -> str | None:
                 buffer.clear()
                 got.clear()
+                # 'cmd:xyz' stuurt het commando letterlijk (zonder 'get ' ervoor)
+                command = param[4:].strip() if param.startswith("cmd:") else f"get {param}"
                 await self.hass.services.async_call(
                     "meshcore", "execute_command",
-                    {"command": f'send_cmd {short} "get {param}"'}, blocking=True,
+                    {"command": f'send_cmd {short} "{command}"'}, blocking=True,
                 )
                 try:
                     await asyncio.wait_for(got.wait(), timeout=SETTINGS_RESPONSE_TIMEOUT)
