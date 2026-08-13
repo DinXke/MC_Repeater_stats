@@ -10,6 +10,12 @@ door Home Assistant. Bestaat uit twee delen:
   MeshCore-entiteiten in HA volgt en bij elke wijziging (gedebounced) een
   snapshot naar de site pusht.
 
+## Zie ook
+
+**[MeshCore Proxy](https://github.com/DinXke/MeshCore-Proxy)** — TCP-fanout-proxy
+(Home Assistant add-on) waarmee meerdere companions (meshcore-ha, MeshCore-app,
+meshcore-cli) tegelijk één MeshCore WiFi-node delen.
+
 ## Architectuur
 
 ```
